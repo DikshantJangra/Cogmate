@@ -16,7 +16,12 @@ class GeminiClient:
     async def generate_content(self, prompt: str) -> str:
         if self.model is None:
             raise ValueError("No model initialized. Check API key.")
-        response = self.model.generate_content(prompt)
+        
+        logging.info("Starting LLM generation call.")
+        import asyncio
+        response = await asyncio.to_thread(self.model.generate_content, prompt)
+        logging.info(f"LLM generation call finished. Returned {len(response.text)} characters.")
+        
         return response.text
 
 # Singleton instance

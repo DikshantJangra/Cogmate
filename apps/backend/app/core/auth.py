@@ -1,7 +1,7 @@
 from fastapi import Request, HTTPException, Depends
 from sqlalchemy.future import select
 from sqlalchemy import text
-from .database import get_db
+from app.core.database import get_db
 
 async def get_current_user(request: Request, db = Depends(get_db)):
     session_token = request.cookies.get("better-auth.session_token")
