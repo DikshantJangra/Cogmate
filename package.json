@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "build:packages": "pnpm --filter mathml2omml run build && pnpm --filter pptxgenjs exec tsc",
-    "dev:backend": "cd apps/backend && source venv/bin/activate && uvicorn app.main:app --reload",
+    "dev": "pnpm run dev:backend & pnpm run dev:classroom",
+    "dev:backend": "cd apps/backend && uvicorn app.main:app --reload",
     "dev:listener": "pnpm --filter meetily run dev",
     "dev:classroom": "pnpm --filter openmaic run dev",
     "install:all": "pnpm install && pnpm run build:packages && cd apps/backend && python3.12 -m venv venv && source venv/bin/activate && pip install -r requirements.txt",
