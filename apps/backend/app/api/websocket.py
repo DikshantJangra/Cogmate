@@ -15,22 +15,27 @@ class ConnectionManager:
         await websocket.accept()
         if is_ui:
             self.ui_connections.append(websocket)
+            print(f"✅ UI Connected: {websocket.client}")
         else:
             self.active_connections.append(websocket)
+            print(f"🎙️ Audio Stream Connected: {websocket.client}")
 
     def disconnect(self, websocket: WebSocket, is_ui: bool = False):
         if is_ui:
             if websocket in self.ui_connections:
                 self.ui_connections.remove(websocket)
+                print(f"❌ UI Disconnected")
         else:
             if websocket in self.active_connections:
                 self.active_connections.remove(websocket)
+                print(f"❌ Audio Stream Disconnected")
 
     async def broadcast_to_ui(self, message: dict):
         for connection in self.ui_connections:
             try:
                 await connection.send_json(message)
-            except Exception:
+            except Exception as e:
+                print(f"Error broadcasting to UI: {e}")
                 pass
 
 manager = ConnectionManager()
