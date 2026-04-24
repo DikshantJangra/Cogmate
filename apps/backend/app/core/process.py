@@ -1,4 +1,4 @@
-from app.api.vision import process_image, VisionRequest
+from app.api.vision import process_vision
 from app.core.synthesis import synthesize_notes
 from app.core.vector_store import store_chunks
 import logging
@@ -13,7 +13,7 @@ async def process_pipeline(image_b64: str, student_notes: str, session_id: str =
     
     ocr_text = ""
     try:
-        vision_response = await process_image(VisionRequest(image_b64=image_b64))
+        vision_response = await process_vision(image_b64=image_b64)
         ocr_text = vision_response.text
         
         # Phase 2 Step 2: Store OCR chunks in Vector DB
