@@ -1,4 +1,3 @@
 packages:
   - "apps/*"
-  - "apps/listener/frontend"
   - "packages/*"
