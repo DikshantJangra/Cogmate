@@ -97,7 +97,7 @@ export function useASR(options: UseASROptions = {}) {
       };
 
       mediaRecorderRef.current = recorder;
-      recorder.start();
+      recorder.start(1000); // Send data chunks every second
 
       // Transcribe every 4 seconds
       intervalRef.current = setInterval(() => {

@@ -11,6 +11,7 @@ import {
 import { cn } from '@/lib/utils';
 import { createLogger } from '@/lib/logger';
 import { useASR } from '@/lib/audio/use-asr';
+import { getCurrentModelConfig } from '@/lib/utils/model-config';
 
 const log = createLogger('LiveLecture');
 
@@ -33,6 +34,7 @@ interface LectureState {
   confusion: string[];
   eval_score: number;
   topic: string;
+  final_summary?: string;
 }
 
 const WS_URL = process.env.NEXT_PUBLIC_COGMATE_WS_URL ?? 'ws://127.0.0.1:8000/ws/ui';
@@ -70,10 +72,12 @@ export default function LiveLecturePage() {
         setInterimText('');
         if (result.text.trim()) {
           if (wsRef.current?.readyState === WebSocket.OPEN) {
+            const modelConfig = getCurrentModelConfig();
             wsRef.current.send(JSON.stringify({
               type: 'transcript_chunk',
               text: result.text.trim(),
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              model_config: modelConfig,
             }));
           }
         }
@@ -98,6 +102,17 @@ export default function LiveLecturePage() {
     if (isRecording) stopSTT();
     else {
       startRecording();
+    }
+  };
+
+  const handleSummarize = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      const modelConfig = getCurrentModelConfig();
+      wsRef.current.send(JSON.stringify({
+        type: 'summarize',
+        model_config: modelConfig,
+      }));
+      setProcessing(true);
     }
   };
 
@@ -139,6 +154,7 @@ export default function LiveLecturePage() {
             confusion: msg.confusion ?? [],
             eval_score: msg.eval_score ?? 1,
             topic: msg.topic ?? 'Live Lecture',
+            final_summary: msg.final_summary,
           });
           setProcessing(false);
         } else if (msg.type === 'error') {
@@ -170,7 +186,12 @@ export default function LiveLecturePage() {
   };
 
   const sendTopicChange = (t: string) => {
-    wsRef.current?.send(JSON.stringify({ type: 'set_topic', topic: t }));
+    const modelConfig = getCurrentModelConfig();
+    wsRef.current?.send(JSON.stringify({ 
+      type: 'set_topic', 
+      topic: t,
+      model_config: modelConfig,
+    }));
   };
 
   const handleInject = async () => {
@@ -240,9 +261,11 @@ export default function LiveLecturePage() {
     if (chunks.length === 0) return;
 
     const fullTranscript = chunks.map((c) => c.text).join('\n');
+    const summaryHint = state.final_summary ? `\n\nLecture Summary:\n${state.final_summary}` : '';
+    
     const generationSession = {
       requirements: {
-        requirement: `Build a course based on this live lecture transcript for topic "${state.topic || topic}":\n\n${fullTranscript}`,
+        requirement: `Build a course based on this live lecture transcript for topic "${state.topic || topic}":\n\n${fullTranscript}${summaryHint}`,
         webSearch: false,
         interactiveMode: false,
       },
@@ -511,6 +534,46 @@ export default function LiveLecturePage() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Final Summary */}
+            <AnimatePresence>
+              {state.final_summary && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-xl border border-teal-100 bg-teal-50/30 p-4 space-y-2.5"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-teal-700">
+                      <Sparkles className="size-3.5" />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Lecture Insights</span>
+                    </div>
+                  </div>
+                  <div className="prose prose-slate prose-xs max-w-none text-slate-600 text-[11px] leading-relaxed">
+                    {state.final_summary.split('\n').map((line, i) => (
+                      <p key={i}>{line}</p>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Summarize Action */}
+            {!state.final_summary && chunks.length > 5 && (
+              <button
+                onClick={handleSummarize}
+                disabled={processing}
+                className="w-full py-3 rounded-xl border border-dashed border-slate-200 hover:border-teal-300 hover:bg-teal-50/50 transition-all group flex flex-col items-center justify-center gap-2"
+              >
+                <div className="size-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-white transition-colors">
+                  <Brain className="size-4 text-slate-400 group-hover:text-teal-500" />
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Generate Insights</p>
+                  <p className="text-[9px] text-slate-300">Summarize the key takeaways using your AI settings</p>
+                </div>
+              </button>
+            )}
 
             {/* Lesson Outline */}
             <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
