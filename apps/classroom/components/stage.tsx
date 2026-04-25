@@ -71,6 +71,8 @@ export function Stage({
   const setChatAreaCollapsed = useSettingsStore((s) => s.setChatAreaCollapsed);
   const setTTSMuted = useSettingsStore((s) => s.setTTSMuted);
   const setTTSVolume = useSettingsStore((s) => s.setTTSVolume);
+  const autoPlayLecture = useSettingsStore((s) => s.autoPlayLecture);
+  const setAutoPlayLecture = useSettingsStore((s) => s.setAutoPlayLecture);
 
   // PlaybackEngine state
   const [engineMode, setEngineMode] = useState<EngineMode>('idle');
@@ -1019,7 +1021,7 @@ export function Stage({
                     (chatIsStreaming && (chatSessionType === 'qa' || chatSessionType === 'discussion'))
                   }
                   onStopDiscussion={handleStopDiscussion}
-                  hideToolbar={mode === 'playback' || (isPresenting && !controlsVisible)}
+                  hideToolbar={isPresenting && !controlsVisible}
                   isPendingScene={isPendingScene}
                   isCourseComplete={isCourseComplete}
                   isGenerationFailed={
@@ -1030,6 +1032,19 @@ export function Stage({
                       ? () => onRetryOutline(generatingOutlines[0].id)
                       : undefined
                   }
+                  ttsEnabled={ttsEnabled}
+                  ttsMuted={ttsMuted}
+                  ttsVolume={ttsVolume}
+                  onToggleMute={() => setTTSMuted(!ttsMuted)}
+                  onVolumeChange={setTTSVolume}
+                  autoPlayLecture={autoPlayLecture}
+                  onToggleAutoPlay={() => setAutoPlayLecture(!autoPlayLecture)}
+                  playbackSpeed={playbackSpeed}
+                  onCycleSpeed={() => {
+                    const speeds = [1, 1.25, 1.5, 2] as const;
+                    const idx = speeds.indexOf(playbackSpeed as typeof speeds[number]);
+                    useSettingsStore.getState().setPlaybackSpeed(speeds[(idx + 1) % speeds.length]);
+                  }}
                 />
               </div>
               

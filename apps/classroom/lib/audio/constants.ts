@@ -1082,6 +1082,18 @@ export const ASR_PROVIDERS: Record<BuiltInASRProviderId, ASRProviderConfig> = {
     supportedFormats: ['mp3', 'wav', 'webm', 'm4a', 'flac'],
   },
 
+  'cogmate-local': {
+    id: 'cogmate-local',
+    name: 'Cogmate Local (faster-whisper)',
+    requiresApiKey: false,
+    defaultBaseUrl: 'http://127.0.0.1:8000',
+    icon: '/logos/cogmate-small.png',
+    models: [{ id: 'base', name: 'Whisper Base (CPU)' }],
+    defaultModelId: 'base',
+    supportedLanguages: CUSTOM_ASR_DEFAULT_LANGUAGES,
+    supportedFormats: ['webm', 'wav'],
+  },
+
   'browser-native': {
     id: 'browser-native',
     name: '浏览器原生 ASR (Web Speech API)',

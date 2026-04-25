@@ -26,6 +26,7 @@ export function useASR(options: UseASROptions = {}) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const intervalRef = useRef<any>(null);
+  const isFallingBackRef = useRef(false);
 
   const { asrProviderId } = useSettingsStore();
 
@@ -83,11 +84,14 @@ export function useASR(options: UseASROptions = {}) {
       recorder.onstart = () => {
         setIsListening(true);
         setError(null);
+        // Clear fallback banner once hybrid recording is actually running
+        setIsFallingBack(false);
       };
 
       recorder.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
         setIsListening(false);
+        isFallingBackRef.current = false;
         setIsFallingBack(false);
         options.onEnd?.();
       };
@@ -136,12 +140,13 @@ export function useASR(options: UseASROptions = {}) {
     recognition.onerror = (event: any) => {
       log.warn('Native ASR error:', event.error);
 
-      // AUTO-FALLBACK: If network error in browser, try hybrid mode
-      if (event.error === 'network' && !isFallingBack) {
-        log.info('Network error detected in Browser Native ASR. Falling back to Server ASR (Whisper)...');
+      // AUTO-FALLBACK: If network error in browser, switch to MediaRecorder + server transcription
+      if (event.error === 'network' && !isFallingBackRef.current) {
+        log.info('Network error detected in Browser Native ASR. Falling back to server transcription...');
+        isFallingBackRef.current = true;
         setIsFallingBack(true);
         recognition.stop();
-        startHybrid('openai-whisper');
+        startHybrid();
         return;
       }
 
@@ -152,7 +157,7 @@ export function useASR(options: UseASROptions = {}) {
     };
 
     recognition.onend = () => {
-      if (!isFallingBack) {
+      if (!isFallingBackRef.current) {
         setIsListening(false);
         options.onEnd?.();
       }
@@ -171,11 +176,12 @@ export function useASR(options: UseASROptions = {}) {
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [options, isFallingBack, startHybrid]);
+  }, [options, startHybrid]);
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
   const start = useCallback(() => {
+    isFallingBackRef.current = false;
     setIsFallingBack(false);
     if (asrProviderId === 'browser-native') {
       startNative();
@@ -198,6 +204,7 @@ export function useASR(options: UseASROptions = {}) {
       intervalRef.current = null;
     }
     setIsListening(false);
+    isFallingBackRef.current = false;
     setIsFallingBack(false);
   }, []);
 

@@ -85,10 +85,8 @@ function GenerationPreviewContent() {
   // Abort in-flight requests only when explicitly navigating away, not on re-renders
   useEffect(() => {
     return () => {
-      // Only abort if we're not actively generating (i.e. a real unmount, not a re-render)
-      if (!isGeneratingRef.current) {
-        abortControllerRef.current?.abort();
-      }
+      // Always abort on unmount to prevent hanging requests
+      abortControllerRef.current?.abort();
     };
   }, []);
 

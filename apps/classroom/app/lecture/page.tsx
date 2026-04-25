@@ -56,6 +56,7 @@ export default function LiveLecturePage() {
   const [connected, setConnected] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [chunks, setChunks] = useState<TranscriptChunk[]>([]);
+  const [interimText, setInterimText] = useState('');
   const [state, setState] = useState<LectureState>({
     transcript: [], outline: [], tags: [], confusion: [], eval_score: 1, topic: 'Live Lecture',
   });
@@ -63,25 +64,26 @@ export default function LiveLecturePage() {
   const [outlineOpen, setOutlineOpen] = useState(true);
 
   // STT hook
-  const { start: startSTT, stop: stopSTT, isListening: isRecording, isFallingBack, asrProviderId } = useASR({
+  const { start: startSTT, stop: stopSTT, isListening: isRecording, isFallingBack, asrProviderId, isHybrid } = useASR({
     onResult: (result) => {
-      if (result.isFinal && result.text.trim()) {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
-            type: 'transcript_chunk',
-            text: result.text.trim(),
-            timestamp: new Date().toISOString()
-          }));
+      if (result.isFinal) {
+        setInterimText('');
+        if (result.text.trim()) {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+              type: 'transcript_chunk',
+              text: result.text.trim(),
+              timestamp: new Date().toISOString()
+            }));
+          }
         }
+      } else {
+        setInterimText(result.text);
       }
     },
     onError: (err) => {
       log.warn('STT Error:', err.message);
-      if (err.message.includes('network')) {
-        setSttError('Network error: Chrome speech service unreachable. Go to Settings -> Audio and switch ASR Provider to "OpenAI Whisper" for a more reliable (hybrid/local) experience.');
-      } else {
-        setSttError(err.message);
-      }
+      setSttError(err.message);
     }
   });
 
@@ -349,7 +351,7 @@ export default function LiveLecturePage() {
             <Mic className={cn("size-3", isRecording ? "text-red-500 animate-pulse" : "text-slate-400")} />
             <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">Transcript</span>
             <span className="text-[9px] text-slate-400 font-normal lowercase tracking-normal bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
-              via {asrProviderId === 'browser-native' ? 'browser' : 'server'}
+              via {isHybrid ? 'server' : asrProviderId === 'browser-native' ? 'browser' : 'server'}
             </span>
             <span className="ml-auto text-[10px] text-slate-300">{chunks.length} chunks</span>
             <button
@@ -376,22 +378,14 @@ export default function LiveLecturePage() {
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-semibold text-slate-700">
-                      {isFallingBack 
-                        ? "Switching to server transcription..." 
-                        : isRecording 
-                          ? "Listening to your lecture..." 
-                          : "Waiting for audio..."}
+                      {isRecording ? 'Listening to your lecture...' : 'Waiting for audio...'}
                     </p>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      {sttError 
-                        ? sttError 
-                        : isFallingBack
-                          ? "Chrome service failed. Cogmate is automatically switching to server-side ASR for better reliability."
-                          : isRecording 
-                            ? "Speak clearly. Your transcript and outline will appear here in real-time."
-                            : asrProviderId === 'browser-native'
-                              ? "Using Chrome's speech service. If you encounter network errors, switch ASR Provider to Whisper in Settings."
-                              : "Using hybrid transcription (MediaRecorder + Server). Reliable for all environments."}
+                      {sttError
+                        ? sttError
+                        : isRecording
+                          ? 'Speak clearly. Your transcript and outline will appear here in real-time.'
+                          : 'Using server transcription (MediaRecorder + Whisper). Reliable for all environments.'}
                     </p>
                   </div>
                   {!isRecording && (
@@ -425,6 +419,22 @@ export default function LiveLecturePage() {
                     </div>
                   </motion.div>
                 ))
+              )}
+              
+              {/* ── Live Interim Text ── */}
+              {interimText && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="py-1"
+                >
+                  <div className="flex items-start gap-2">
+                    <span className="text-[8px] bg-red-100 text-red-500 px-1 rounded uppercase font-bold mt-1 tracking-tighter">Live</span>
+                    <p className="text-xs text-slate-400 italic leading-relaxed animate-in fade-in duration-500">
+                      {interimText}…
+                    </p>
+                  </div>
+                </motion.div>
               )}
             </AnimatePresence>
             <div ref={transcriptEndRef} />

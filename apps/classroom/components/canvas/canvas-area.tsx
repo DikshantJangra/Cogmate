@@ -48,6 +48,15 @@ export function CanvasArea({
   isCourseComplete,
   isGenerationFailed,
   onRetryGeneration,
+  ttsEnabled,
+  ttsMuted,
+  ttsVolume,
+  onToggleMute,
+  onVolumeChange,
+  autoPlayLecture,
+  onToggleAutoPlay,
+  playbackSpeed,
+  onCycleSpeed,
 }: CanvasAreaProps) {
   const { t } = useI18n();
   const showControls = mode === 'playback' && !whiteboardOpen;

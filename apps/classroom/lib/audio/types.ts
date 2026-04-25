@@ -151,7 +151,7 @@ export interface TTSModelConfig {
  * Add new ASR providers here as union members.
  * Keep in sync with ASR_PROVIDERS registry in constants.ts
  */
-export type BuiltInASRProviderId = 'openai-whisper' | 'browser-native' | 'qwen-asr';
+export type BuiltInASRProviderId = 'openai-whisper' | 'browser-native' | 'qwen-asr' | 'cogmate-local';
 
 export type ASRProviderId = BuiltInASRProviderId | `custom-asr-${string}`;
 

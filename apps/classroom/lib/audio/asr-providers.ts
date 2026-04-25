@@ -183,6 +183,9 @@ export async function transcribeAudio(
     case 'qwen-asr':
       return await transcribeQwenASR(config, audioBuffer);
 
+    case 'cogmate-local':
+      return await transcribeCogmateLocalASR(config, audioBuffer);
+
     default:
       if (isCustomASRProvider(config.providerId)) {
         return await transcribeOpenAIWhisper(config, audioBuffer);
@@ -326,6 +329,38 @@ async function transcribeQwenASR(
   // Extract text from first content item
   const transcribedText = messageContent[0]?.text || '';
   return { text: transcribedText };
+}
+
+/**
+ * Cogmate Local ASR implementation (pointing to Cogmate Backend)
+ */
+async function transcribeCogmateLocalASR(
+  config: ASRModelConfig,
+  audioBuffer: Buffer | Blob,
+): Promise<ASRTranscriptionResult> {
+  const baseUrl = config.baseUrl || 'http://127.0.0.1:8000';
+
+  const formData = new FormData();
+  let blob: Blob;
+  if (audioBuffer instanceof Buffer) {
+    blob = new Blob([audioBuffer], { type: 'audio/webm' });
+  } else {
+    blob = audioBuffer;
+  }
+  formData.append('file', blob, 'audio.webm');
+
+  const response = await fetch(`${baseUrl}/api/transcript`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Cogmate Local ASR error: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return { text: data.text || '' };
 }
 
 /**
