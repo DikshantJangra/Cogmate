@@ -1,49 +1,63 @@
 /**
  * Cogmate WebSocket Client
- * Pipes transcripts from the Listener (Meetily) to the Cogmate Backend.
+ * Pipes transcripts from the Listener to the Cogmate Backend /ws/audio endpoint.
  */
+
+const DEFAULT_URL = process.env.NEXT_PUBLIC_COGMATE_WS_URL?.replace('/ws/ui', '/ws/audio')
+  ?? 'ws://127.0.0.1:8000/ws/audio';
+
 class CogmateWebSocketClient {
   private socket: WebSocket | null = null;
   private url: string;
-  private reconnectInterval: number = 3000;
+  private retryDelay = 2000;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private destroyed = false;
 
-  constructor(url: string = 'ws://127.0.0.1:8000/ws/audio') {
+  constructor(url: string = DEFAULT_URL) {
     this.url = url;
   }
 
   connect() {
-    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
-      return;
-    }
+    if (this.destroyed) return;
+    if (this.socket?.readyState === WebSocket.OPEN || this.socket?.readyState === WebSocket.CONNECTING) return;
 
-    console.log('🔗 Connecting to Cogmate Backend WebSocket...');
     this.socket = new WebSocket(this.url);
 
     this.socket.onopen = () => {
-      console.log('✅ Connected to Cogmate Backend');
+      console.log('✅ Cogmate WS connected');
+      this.retryDelay = 2000; // reset backoff
     };
 
     this.socket.onclose = () => {
-      console.log('❌ Disconnected from Cogmate Backend. Retrying...');
-      setTimeout(() => this.connect(), this.reconnectInterval);
+      if (this.destroyed) return;
+      console.log(`❌ Cogmate WS closed. Retrying in ${this.retryDelay}ms…`);
+      this.retryTimer = setTimeout(() => this.connect(), this.retryDelay);
+      this.retryDelay = Math.min(this.retryDelay * 1.5, 30000);
     };
 
-    this.socket.onerror = (error) => {
-      console.error('⚠️ Cogmate WebSocket Error:', error);
-    };
+    this.socket.onerror = () => this.socket?.close();
   }
 
-  sendTranscript(text: string, isPartial: boolean = false) {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify({ text, is_partial: isPartial, timestamp: new Date().toISOString() }));
-    }
+  sendTranscript(text: string, isPartial = false, topic?: string) {
+    if (this.socket?.readyState !== WebSocket.OPEN) return;
+    this.socket.send(JSON.stringify({
+      text,
+      is_partial: isPartial,
+      timestamp: new Date().toISOString(),
+      ...(topic ? { topic } : {}),
+    }));
+  }
+
+  setTopic(topic: string) {
+    if (this.socket?.readyState !== WebSocket.OPEN) return;
+    this.socket.send(JSON.stringify({ type: 'set_topic', topic }));
   }
 
   disconnect() {
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
-    }
+    this.destroyed = true;
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    this.socket?.close();
+    this.socket = null;
   }
 }
 

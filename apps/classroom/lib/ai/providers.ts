@@ -408,38 +408,6 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
     icon: '/logos/gemini.svg',
     models: [
       {
-        id: 'gemini-3.1-pro-preview',
-        name: 'Gemini 3.1 Pro Preview',
-        contextWindow: 1048576,
-        outputWindow: 65536,
-        capabilities: {
-          streaming: true,
-          tools: true,
-          vision: true,
-          thinking: {
-            toggleable: false,
-            budgetAdjustable: true,
-            defaultEnabled: true,
-          },
-        },
-      },
-      {
-        id: 'gemini-3-flash-preview',
-        name: 'Gemini 3 Flash Preview',
-        contextWindow: 1048576,
-        outputWindow: 65536,
-        capabilities: {
-          streaming: true,
-          tools: true,
-          vision: true,
-          thinking: {
-            toggleable: false,
-            budgetAdjustable: true,
-            defaultEnabled: true,
-          },
-        },
-      },
-      {
         id: 'gemini-2.5-flash',
         name: 'Gemini 2.5 Flash',
         contextWindow: 1048576,
@@ -1445,6 +1413,47 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
         name: 'Mistral 7B',
         contextWindow: 32768,
         outputWindow: 4096,
+        capabilities: { streaming: true, tools: false, vision: false },
+      },
+    ],
+  },
+
+  groq: {
+    id: 'groq',
+    name: 'Groq',
+    type: 'openai',
+    defaultBaseUrl: 'https://api.groq.com/openai/v1',
+    requiresApiKey: true,
+    icon: '/logos/groq.svg',
+    models: [
+      {
+        id: 'moonshotai/kimi-k2-instruct',
+        name: 'Kimi K2 Instruct',
+        contextWindow: 131072,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'llama-3.3-70b-versatile',
+        name: 'Llama 3.3 70B',
+        contextWindow: 128000,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'llama-3.1-8b-instant',
+        name: 'Llama 3.1 8B Instant',
+        contextWindow: 128000,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'gemma2-9b-it',
+        name: 'Gemma 2 9B',
+        contextWindow: 8192,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'deepseek-r1-distill-llama-70b',
+        name: 'DeepSeek R1 Distill 70B',
+        contextWindow: 128000,
         capabilities: { streaming: true, tools: false, vision: false },
       },
     ],

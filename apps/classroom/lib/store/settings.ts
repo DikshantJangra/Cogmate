@@ -320,6 +320,7 @@ const getDefaultAudioConfig = () => ({
     'doubao-tts': { apiKey: '', baseUrl: '', enabled: false },
     'elevenlabs-tts': { apiKey: '', baseUrl: '', enabled: false },
     'minimax-tts': { apiKey: '', baseUrl: '', modelId: 'speech-2.8-hd', enabled: false },
+    'google-tts': { apiKey: '', baseUrl: '', modelId: '', enabled: true },
     'browser-native-tts': { apiKey: '', baseUrl: '', enabled: true },
   } as Record<
     TTSProviderId,
@@ -1247,11 +1248,19 @@ export const useSettingsStore = create<SettingsState>()(
                 }
               }
 
-              // LLM auto-select: only on true first load (no provider selected yet)
+              // LLM auto-select: when no provider selected, OR when selected provider
+              // has no API key and is not server-configured (e.g. stale 'openai' default)
+              const currentProviderCfg = newProvidersConfig[state.providerId as ProviderId];
+              const currentProviderUsable =
+                currentProviderCfg?.isServerConfigured || !!currentProviderCfg?.apiKey;
               let autoProviderId: ProviderId | undefined;
               let autoModelId: string | undefined;
-              if (!state.providerId && !state.modelId) {
-                for (const [pid, cfg] of Object.entries(newProvidersConfig)) {
+              if (!state.providerId || !state.modelId || !currentProviderUsable) {
+                // Prefer groq if server-configured, then fall back to others
+                const providerEntries = Object.entries(newProvidersConfig).sort(([a], [b]) =>
+                  a === 'groq' ? -1 : b === 'groq' ? 1 : 0,
+                );
+                for (const [pid, cfg] of providerEntries) {
                   if (cfg.isServerConfigured) {
                     // Prefer server-restricted models, fall back to built-in list
                     const serverModels = cfg.serverModels;
@@ -1341,7 +1350,7 @@ export const useSettingsStore = create<SettingsState>()(
     },
     {
       name: 'settings-storage',
-      version: 2,
+      version: 4,
       // Migrate persisted state
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as Partial<SettingsState>;
@@ -1432,6 +1441,21 @@ export const useSettingsStore = create<SettingsState>()(
           delete (state as Record<string, unknown>).deepResearchProvidersConfig;
         }
 
+        // v3 → v4: Force Groq as default — reset any Google model so auto-config re-selects
+        if (version < 4) {
+          if ((state.providerId as string) === 'google') {
+            state.modelId = '';
+            state.autoConfigApplied = false;
+          }
+        }
+
+        // Reset broken/preview models to force re-selection
+        const BROKEN_MODELS = new Set(['gemini-3.1-pro-preview', 'gemini-3-flash-preview']);
+        if (!state.modelId || BROKEN_MODELS.has(state.modelId as string)) {
+          state.modelId = '';
+          state.autoConfigApplied = false;
+        }
+
         // Add default media generation toggles if missing
         if (state.imageGenerationEnabled === undefined) {
           state.imageGenerationEnabled = false;
@@ -1486,12 +1510,22 @@ export const useSettingsStore = create<SettingsState>()(
       // Custom merge: always sync built-in providers on every rehydrate,
       // so newly added providers/models appear without clearing cache.
       merge: (persistedState, currentState) => {
-        const merged = { ...currentState, ...(persistedState as object) };
-        ensureBuiltInProviders(merged as Partial<SettingsState>);
-        promoteLegacyCustomProviderBaseUrls(merged as Partial<SettingsState>);
-        ensureBuiltInImageProviders(merged as Partial<SettingsState>);
-        ensureBuiltInVideoProviders(merged as Partial<SettingsState>);
-        ensureValidProviderSelections(merged as Partial<SettingsState>);
+        const merged = { ...currentState, ...(persistedState as object) } as Partial<SettingsState>;
+        ensureBuiltInProviders(merged);
+        promoteLegacyCustomProviderBaseUrls(merged);
+        ensureBuiltInImageProviders(merged);
+        ensureBuiltInVideoProviders(merged);
+        ensureValidProviderSelections(merged);
+        // Reset broken/preview models — force re-auto-select
+        const BROKEN_MODELS = new Set(['gemini-3.1-pro-preview', 'gemini-3-flash-preview']);
+        if (!merged.modelId || BROKEN_MODELS.has(merged.modelId as string) || (merged.providerId as string) === 'google') {
+          merged.modelId = '';
+          merged.autoConfigApplied = false;
+        }
+        // Reset browser-native-tts so google-tts gets auto-selected on next load
+        if (merged.ttsProviderId === 'browser-native-tts') {
+          merged.autoConfigApplied = false;
+        }
         return merged as SettingsState;
       },
     },

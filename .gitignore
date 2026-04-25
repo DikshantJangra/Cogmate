@@ -27,3 +27,20 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Next.js
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+dist/
+*.tsbuildinfo
+tsc_errors.log
+
+# ChromaDB
+chroma_db/

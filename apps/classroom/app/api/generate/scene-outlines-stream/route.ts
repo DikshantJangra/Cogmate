@@ -329,37 +329,41 @@ export async function POST(req: NextRequest) {
               // Validate: got outlines?
               if (parsedOutlines.length > 0) break;
 
-              // Empty result — retry if we have attempts left
+              // Empty result — could be rate limit swallowed by SDK
               lastError = fullText.trim()
                 ? 'LLM response could not be parsed into outlines'
-                : 'LLM returned empty response';
+                : 'LLM returned empty response. This may be a rate limit — wait 30s and try again.';
 
               if (attempt <= MAX_STREAM_RETRIES) {
-                log.warn(
-                  `Empty outlines (attempt ${attempt}/${MAX_STREAM_RETRIES + 1}), retrying...`,
-                );
-                // Notify client a retry is happening
-                const retryEvent = JSON.stringify({
-                  type: 'retry',
-                  attempt,
-                  maxAttempts: MAX_STREAM_RETRIES + 1,
-                });
-                controller.enqueue(encoder.encode(`data: ${retryEvent}\n\n`));
+                log.warn(`Empty outlines (attempt ${attempt}/${MAX_STREAM_RETRIES + 1}), waiting 30s...`);
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'retry', attempt, maxAttempts: MAX_STREAM_RETRIES + 1, reason: 'Empty response — possible rate limit, waiting 30s' })}\n\n`));
+                await new Promise(r => setTimeout(r, 30000));
               }
             } catch (error) {
-              lastError = error instanceof Error ? error.message : String(error);
-
+              const errMsg = error instanceof Error ? error.message : String(error);
+              // Rate limit or request-too-large — extract wait time and retry
+              const retryAfterMatch = errMsg.match(/retry in ([\d.]+)s/i);
+              const retryAfterHeader = (error as Record<string, Record<string, string>>)?.responseHeaders?.['retry-after'];
+              const retryAfterHeaderSecs = retryAfterHeader ? parseFloat(String(retryAfterHeader)) : NaN;
+              const isRateLimit = errMsg.includes('quota') || errMsg.includes('rate') || errMsg.includes('429') || errMsg.includes('413') || errMsg.includes('too large') || !!retryAfterMatch;
+              if (isRateLimit) {
+                const waitMs = retryAfterMatch
+                  ? Math.ceil(parseFloat(retryAfterMatch[1])) * 1000
+                  : !isNaN(retryAfterHeaderSecs)
+                    ? Math.ceil(retryAfterHeaderSecs) * 1000
+                    : 30000;
+                lastError = `Request too large or rate limit hit. Waiting ${Math.ceil(waitMs/1000)}s before retry...`;
+                log.warn(`Rate/size limit (attempt ${attempt}), waiting ${waitMs}ms... Error: ${errMsg.substring(0, 200)}`);
+                if (attempt <= MAX_STREAM_RETRIES) {
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'retry', attempt, maxAttempts: MAX_STREAM_RETRIES + 1, reason: lastError })}\n\n`));
+                  await new Promise(r => setTimeout(r, waitMs));
+                  continue;
+                }
+              }
+              lastError = errMsg;
               if (attempt <= MAX_STREAM_RETRIES) {
-                log.warn(
-                  `Stream error (attempt ${attempt}/${MAX_STREAM_RETRIES + 1}), retrying...`,
-                  error,
-                );
-                const retryEvent = JSON.stringify({
-                  type: 'retry',
-                  attempt,
-                  maxAttempts: MAX_STREAM_RETRIES + 1,
-                });
-                controller.enqueue(encoder.encode(`data: ${retryEvent}\n\n`));
+                log.warn(`Stream error (attempt ${attempt}/${MAX_STREAM_RETRIES + 1}), retrying...`, error);
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'retry', attempt, maxAttempts: MAX_STREAM_RETRIES + 1 })}\n\n`));
                 continue;
               }
             }

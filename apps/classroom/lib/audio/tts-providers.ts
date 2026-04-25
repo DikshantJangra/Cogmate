@@ -155,6 +155,9 @@ export async function generateTTS(
     case 'elevenlabs-tts':
       return await generateElevenLabsTTS(config, text);
 
+    case 'google-tts':
+      return await generateGoogleTTS(config, text);
+
     case 'browser-native-tts':
       throw new Error(
         'Browser Native TTS must be handled client-side using Web Speech API. This provider cannot be used on the server.',
@@ -518,7 +521,7 @@ async function generateDoubaoTTS(
       'X-Api-Resource-Id': 'seed-tts-2.0',
     },
     body: JSON.stringify({
-      user: { uid: 'openmaic' },
+      user: { uid: 'cogmate' },
       req_params: {
         text,
         speaker: config.voice,
@@ -581,6 +584,53 @@ async function generateDoubaoTTS(
     combined.set(chunk, offset);
     offset += chunk.length;
   }
+
+  return { audio: combined, format: 'mp3' };
+}
+
+/**
+ * Google Translate TTS implementation (free, no API key)
+ * Uses translate.google.com/translate_tts — 200 char limit per request,
+ * so long text is chunked at sentence boundaries and audio is concatenated.
+ */
+async function generateGoogleTTS(
+  config: TTSModelConfig,
+  text: string,
+): Promise<TTSGenerationResult> {
+  const lang = config.voice || 'en';
+  const MAX = 200;
+
+  // Split into <=200 char chunks at sentence/word boundaries
+  const chunks: string[] = [];
+  let remaining = text.trim();
+  while (remaining.length > 0) {
+    if (remaining.length <= MAX) {
+      chunks.push(remaining);
+      break;
+    }
+    // Try to split at sentence end within limit
+    let cut = remaining.lastIndexOf('.', MAX);
+    if (cut < 50) cut = remaining.lastIndexOf(' ', MAX);
+    if (cut < 1) cut = MAX;
+    chunks.push(remaining.slice(0, cut + 1).trim());
+    remaining = remaining.slice(cut + 1).trim();
+  }
+
+  const parts: Uint8Array[] = [];
+  for (const chunk of chunks) {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(lang)}&client=tw-ob&q=${encodeURIComponent(chunk)}`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+    if (!res.ok) throw new Error(`Google Translate TTS error (${res.status}): ${res.statusText}`);
+    parts.push(new Uint8Array(await res.arrayBuffer()));
+  }
+
+  // Concatenate all mp3 chunks
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const combined = new Uint8Array(total);
+  let offset = 0;
+  for (const p of parts) { combined.set(p, offset); offset += p.length; }
 
   return { audio: combined, format: 'mp3' };
 }

@@ -59,11 +59,14 @@ export function Header({ currentSceneTitle }: { readonly currentSceneTitle: stri
         <div className="flex items-center gap-3 min-w-0 flex-1 bg-white px-4 h-full rounded-xl border border-slate-100 shadow-lg shadow-slate-200/30">
           <button
             onClick={() => router.push('/')}
-            className="shrink-0 p-1.5 rounded-full text-slate-400 hover:bg-slate-50 hover:text-slate-900 transition-all active:scale-95"
+            className="shrink-0 p-1.5 rounded-xl bg-teal-600 text-white shadow-sm shadow-teal-100 hover:opacity-90 transition-all active:scale-95"
             title={t('generation.backToHome')}
           >
             <ArrowLeft className="w-3.5 h-3.5" />
           </button>
+          <div className="flex items-center gap-2 px-1">
+            <span className="text-[10px] font-bold text-slate-900 uppercase tracking-tighter">Cogmate</span>
+          </div>
           <div className="w-px h-4 bg-slate-100 mx-0.5" />
           <div className="flex flex-col min-w-0">
             <h1

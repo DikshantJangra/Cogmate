@@ -905,6 +905,35 @@ export const TTS_PROVIDERS: Record<BuiltInTTSProviderId, TTSProviderConfig> = {
     speedRange: { min: 0.7, max: 1.2, default: 1.0 },
   },
 
+  'google-tts': {
+    id: 'google-tts',
+    name: 'Google Translate TTS (Free)',
+    requiresApiKey: false,
+    defaultBaseUrl: 'https://translate.google.com',
+    icon: '/logos/google.svg',
+    models: [],
+    defaultModelId: '',
+    voices: [
+      { id: 'en', name: 'English', language: 'en', gender: 'neutral' },
+      { id: 'en-US', name: 'English (US)', language: 'en-US', gender: 'neutral' },
+      { id: 'en-GB', name: 'English (UK)', language: 'en-GB', gender: 'neutral' },
+      { id: 'es', name: 'Spanish', language: 'es', gender: 'neutral' },
+      { id: 'fr', name: 'French', language: 'fr', gender: 'neutral' },
+      { id: 'de', name: 'German', language: 'de', gender: 'neutral' },
+      { id: 'it', name: 'Italian', language: 'it', gender: 'neutral' },
+      { id: 'pt', name: 'Portuguese', language: 'pt', gender: 'neutral' },
+      { id: 'ru', name: 'Russian', language: 'ru', gender: 'neutral' },
+      { id: 'ja', name: 'Japanese', language: 'ja', gender: 'neutral' },
+      { id: 'ko', name: 'Korean', language: 'ko', gender: 'neutral' },
+      { id: 'zh-CN', name: 'Chinese (Simplified)', language: 'zh-CN', gender: 'neutral' },
+      { id: 'zh-TW', name: 'Chinese (Traditional)', language: 'zh-TW', gender: 'neutral' },
+      { id: 'ar', name: 'Arabic', language: 'ar', gender: 'neutral' },
+      { id: 'hi', name: 'Hindi', language: 'hi', gender: 'neutral' },
+    ],
+    supportedFormats: ['mp3'],
+    speedRange: { min: 1.0, max: 1.0, default: 1.0 },
+  },
+
   'browser-native-tts': {
     id: 'browser-native-tts',
     name: '浏览器原生 (Web Speech API)',
@@ -1133,6 +1162,7 @@ export const DEFAULT_TTS_VOICES: Record<BuiltInTTSProviderId, string> = {
   'doubao-tts': 'zh_female_vv_uranus_bigtts',
   'elevenlabs-tts': 'EXAVITQu4vr4xnSDxMaL',
   'minimax-tts': 'female-yujie',
+  'google-tts': 'en',
   'browser-native-tts': 'default',
 };
 
@@ -1144,6 +1174,7 @@ export const DEFAULT_TTS_MODELS: Record<BuiltInTTSProviderId, string> = {
   'doubao-tts': '',
   'elevenlabs-tts': 'eleven_multilingual_v2',
   'minimax-tts': 'speech-2.8-hd',
+  'google-tts': '',
   'browser-native-tts': '',
 };
 

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useStageStore } from '@/lib/store';
 import { loadImageMapping } from '@/lib/utils/image-storage';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useSceneGenerator } from '@/lib/hooks/use-scene-generator';
 import { useMediaGenerationStore } from '@/lib/store/media-generation';
 import { useWhiteboardHistoryStore } from '@/lib/store/whiteboard-history';
@@ -20,6 +20,7 @@ const log = createLogger('Classroom');
 export default function ClassroomDetailPage() {
   const params = useParams();
   const classroomId = params?.id as string;
+  const router = useRouter();
 
   const loadFromStorage = useStageStore((s) => s.loadFromStorage);
 
@@ -208,16 +209,25 @@ export default function ClassroomDetailPage() {
                 <h2 className="text-lg font-semibold text-slate-900">Failed to Load Classroom</h2>
                 <p className="text-sm text-slate-500 max-w-xs mx-auto">{error}</p>
               </div>
-              <Button
-                onClick={() => {
-                  setError(null);
-                  setLoading(true);
-                  loadClassroom();
-                }}
-                className="rounded-full bg-slate-900 hover:bg-slate-800 text-white px-8"
-              >
-                Retry Connection
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => router.push('/')}
+                  variant="outline"
+                  className="rounded-full px-8"
+                >
+                  Go Home
+                </Button>
+                <Button
+                  onClick={() => {
+                    setError(null);
+                    setLoading(true);
+                    loadClassroom();
+                  }}
+                  className="rounded-full bg-slate-900 hover:bg-slate-800 text-white px-8"
+                >
+                  Retry
+                </Button>
+              </div>
             </div>
           ) : (
             <Stage onRetryOutline={retrySingleOutline} />

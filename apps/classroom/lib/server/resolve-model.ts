@@ -24,13 +24,27 @@ export interface ResolvedModel extends ModelWithInfo {
  *
  * Use this when model config comes from the request body.
  */
+const GROQ_FALLBACK = 'groq:llama-3.3-70b-versatile';
+
 export async function resolveModel(params: {
   modelString?: string;
   apiKey?: string;
   baseUrl?: string;
   providerType?: string;
 }): Promise<ResolvedModel> {
-  const modelString = params.modelString || process.env.DEFAULT_MODEL || 'gpt-4o-mini';
+  const rawModelString = params.modelString || process.env.DEFAULT_MODEL || GROQ_FALLBACK;
+  // Guard: if modelId portion is empty (e.g. "google:"), fall back to DEFAULT_MODEL then Groq
+  let modelString = rawModelString.includes(':') && rawModelString.endsWith(':')
+    ? (process.env.DEFAULT_MODEL || GROQ_FALLBACK)
+    : rawModelString;
+
+  // Server-side override: always use Groq when GROQ_API_KEY is set, regardless
+  // of what model the client requests. This ensures the free-tier Google key
+  // (which hits rate limits) is never used when Groq is available.
+  const { providerId: clientProvider } = parseModelString(modelString);
+  if (clientProvider === 'google' && process.env.GROQ_API_KEY) {
+    modelString = process.env.DEFAULT_MODEL?.startsWith('groq:') ? process.env.DEFAULT_MODEL : GROQ_FALLBACK;
+  }
   const { providerId, modelId } = parseModelString(modelString);
 
   // SSRF validation applies only to client-supplied base URLs.

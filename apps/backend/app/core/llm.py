@@ -1,30 +1,27 @@
 import os
-import google.generativeai as genai
-from typing import List, Dict, Optional
 import logging
+from google import genai
 
 class GeminiClient:
     def __init__(self, api_key: str = None):
         self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
         if not self.api_key:
-            logging.warning("GOOGLE_API_KEY not set. Using MockGeminiClient.")
-            self.model = None
+            logging.warning("GOOGLE_API_KEY not set.")
+            self.client = None
         else:
-            genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.client = genai.Client(api_key=self.api_key)
 
     async def generate_content(self, prompt: str) -> str:
-        if self.model is None:
-            raise ValueError("No model initialized. Check API key.")
-        
-        logging.info("Starting LLM generation call.")
+        if self.client is None:
+            raise ValueError("No model initialized. Check GOOGLE_API_KEY.")
         import asyncio
-        response = await asyncio.to_thread(self.model.generate_content, prompt)
-        logging.info(f"LLM generation call finished. Returned {len(response.text)} characters.")
-        
+        response = await asyncio.to_thread(
+            self.client.models.generate_content,
+            model="gemini-2.0-flash",
+            contents=prompt,
+        )
         return response.text
 
-# Singleton instance
 _client = None
 
 def get_gemini_client():

@@ -18,9 +18,9 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'OpenMAIC',
+  title: 'Cogmate — The AI Instructional Designer',
   description:
-    'The open-source AI interactive classroom. Upload a PDF to instantly generate an immersive, multi-agent learning experience.',
+    'Cogmate — The AI Instructional Designer. Capturing real-time audio and visual data to generate pedagogically structured learning materials.',
 };
 
 export default function RootLayout({

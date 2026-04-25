@@ -120,8 +120,9 @@ export function getAvailableProvidersWithVoices(
     const providerConfig = ttsProvidersConfig[providerId];
     const hasApiKey = providerConfig?.apiKey && providerConfig.apiKey.trim().length > 0;
     const isServerConfigured = providerConfig?.isServerConfigured === true;
+    const noKeyRequired = !config.requiresApiKey;
 
-    if (hasApiKey || isServerConfigured) {
+    if (hasApiKey || isServerConfigured || noKeyRequired) {
       const allVoices = config.voices.map((v) => ({
         id: v.id,
         name: v.name,

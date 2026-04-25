@@ -50,6 +50,7 @@ const LLM_ENV_MAP: Record<string, string> = {
   DOUBAO: 'doubao',
   OPENROUTER: 'openrouter',
   GROK: 'grok',
+  GROQ: 'groq',
   TENCENT: 'tencent-hunyuan',
   TENCENT_HUNYUAN: 'tencent-hunyuan',
   XIAOMI: 'xiaomi',

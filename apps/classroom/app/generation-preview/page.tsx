@@ -38,7 +38,15 @@ function GenerationPreviewContent() {
   const hasStartedRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const [session, setSession] = useState<GenerationSessionState | null>(null);
+  const [session, setSession] = useState<GenerationSessionState | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = sessionStorage.getItem('generationSession');
+      return saved ? (JSON.parse(saved) as GenerationSessionState) : null;
+    } catch {
+      return null;
+    }
+  });
   const [sessionLoaded, setSessionLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -69,16 +77,7 @@ function GenerationPreviewContent() {
   // Load session from sessionStorage
   useEffect(() => {
     cleanupOldImages(24).catch((e) => log.error(e));
-
-    const saved = sessionStorage.getItem('generationSession');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as GenerationSessionState;
-        setSession(parsed);
-      } catch (e) {
-        log.error('Failed to parse generation session:', e);
-      }
-    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSessionLoaded(true);
   }, []);
 
@@ -117,14 +116,13 @@ function GenerationPreviewContent() {
     };
   };
 
-  // Auto-start generation when session is loaded
-  useEffect(() => {
-    if (session && !hasStartedRef.current) {
-      hasStartedRef.current = true;
-      startGeneration();
+  const extractTopicFromRequirement = (requirement: string): string => {
+    const trimmed = requirement.trim();
+    if (trimmed.length <= 500) {
+      return trimmed;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
+    return trimmed.substring(0, 500).trim() + '...';
+  };
 
   // Main generation flow
   const startGeneration = async () => {
@@ -351,13 +349,14 @@ function GenerationPreviewContent() {
 
       // Create stage client-side
       const stageId = nanoid(10);
+      const now = Date.now();
       const stage: Stage = {
         id: stageId,
         name: extractTopicFromRequirement(currentSession.requirements.requirement),
         description: '',
         style: 'professional',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
+        createdAt: now,
+        updatedAt: now,
         interactiveMode: !!currentSession.requirements.interactiveMode,
       };
 
@@ -477,6 +476,8 @@ function GenerationPreviewContent() {
         };
         setSession(updatedSession);
         sessionStorage.setItem('generationSession', JSON.stringify(updatedSession));
+        currentSession = updatedSession;
+        activeSteps = getActiveSteps(currentSession);
 
         // Outline generation succeeded — clear homepage draft cache
         try {
@@ -825,13 +826,14 @@ function GenerationPreviewContent() {
     }
   };
 
-  const extractTopicFromRequirement = (requirement: string): string => {
-    const trimmed = requirement.trim();
-    if (trimmed.length <= 500) {
-      return trimmed;
+  // Auto-start generation when session is loaded
+  useEffect(() => {
+    if (session && !hasStartedRef.current) {
+      hasStartedRef.current = true;
+      startGeneration();
     }
-    return trimmed.substring(0, 500).trim() + '...';
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
 
   const goBackToHome = () => {
     abortControllerRef.current?.abort();

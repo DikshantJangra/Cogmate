@@ -3,6 +3,7 @@ from typing import TypedDict, List
 class LessonSection(TypedDict):
     title: str
     gagne_event: str
+    bloom_level: str
     content: str
 
 class CogmateState(TypedDict):
