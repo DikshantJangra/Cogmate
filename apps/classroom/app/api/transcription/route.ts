@@ -59,15 +59,19 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess({ text: result.text });
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : '';
+    
     log.error(
       `Transcription failed [provider=${resolvedProviderId ?? 'unknown'}, model=${resolvedModelId ?? 'default'}]:`,
-      error,
+      { message: errorMsg, stack: errorStack }
     );
+    
     return apiError(
       'TRANSCRIPTION_FAILED',
       500,
       'Transcription failed',
-      error instanceof Error ? error.message : 'Unknown error',
+      errorMsg
     );
   }
 }

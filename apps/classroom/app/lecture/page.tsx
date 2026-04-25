@@ -392,7 +392,7 @@ export default function LiveLecturePage() {
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
             <AnimatePresence initial={false}>
               {chunks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
+                <div key="empty-state" className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
                   <div className={cn(
                     "size-16 rounded-3xl flex items-center justify-center transition-all duration-500",
                     isRecording ? "bg-red-50 text-red-500 scale-110 shadow-lg shadow-red-100" : "bg-slate-50 text-slate-200"
@@ -427,7 +427,7 @@ export default function LiveLecturePage() {
               ) : (
                 chunks.map((c, i) => (
                   <motion.div
-                    key={i}
+                    key={`chunk-${i}`}
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="group"
@@ -447,6 +447,7 @@ export default function LiveLecturePage() {
               {/* ── Live Interim Text ── */}
               {interimText && (
                 <motion.div
+                  key="interim-text"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="py-1"

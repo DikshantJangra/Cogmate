@@ -341,20 +341,17 @@ async function transcribeCogmateLocalASR(
   const baseUrl = config.baseUrl || 'http://127.0.0.1:8000';
 
   const formData = new FormData();
-  let audioFile: File | Blob;
+  let blob: Blob;
 
   if (audioBuffer instanceof Buffer) {
-    // In Node.js environment, we need to convert Buffer to Blob/File properly
-    const arrayBuffer = audioBuffer.buffer.slice(
-      audioBuffer.byteOffset,
-      audioBuffer.byteOffset + audioBuffer.byteLength,
-    );
-    audioFile = new File([arrayBuffer], 'audio.webm', { type: 'audio/webm' });
+    // Standard Node.js Buffer to Blob conversion
+    blob = new Blob([audioBuffer], { type: 'audio/webm' });
   } else {
-    audioFile = audioBuffer;
+    blob = audioBuffer;
   }
 
-  formData.append('file', audioFile);
+  // Use the 3rd argument of append to set the filename for a Blob
+  formData.append('file', blob, 'audio.webm');
 
   const response = await fetch(`${baseUrl}/api/transcript`, {
     method: 'POST',
