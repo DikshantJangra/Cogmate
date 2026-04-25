@@ -1,14 +1,20 @@
 from app.core.state import CogmateState, LessonSection
 from app.core.llm import get_gemini_client
 import json
-
 async def architect_node(state: CogmateState) -> CogmateState:
+    transcript = ' '.join(state['transcript_buffer'])
+
+    # Don't try to build a complex outline until we have enough to work with
+    if len(transcript) < 50:
+        return {**state, "lesson_outline": state.get("lesson_outline", []), "rewrite_count": state.get("rewrite_count", 0) + 1}
+
     client = get_gemini_client()
-    
+
     prompt = f"""
     You are an expert Instructional Designer (The Architect Agent).
     Topic: {state['current_topic']}
-    Transcript Context: {' '.join(state['transcript_buffer'])}
+    Transcript Context: {transcript}
+    
     Slide Context: {state.get('slide_context', 'No slide text available.')}
     
     Your task is to structure the learning experience using:
@@ -21,7 +27,7 @@ async def architect_node(state: CogmateState) -> CogmateState:
     - If there are gaps in the explanation, note them in the 'content'.
     
     Return ONLY a JSON list of objects with 'title', 'gagne_event', 'bloom_level', and 'content'.
-    Example: [{"title": "Intro to NN", "gagne_event": "Gain Attention", "bloom_level": "Understand", "content": "..."}]
+    Example: [{{"title": "Intro to NN", "gagne_event": "Gain Attention", "bloom_level": "Understand", "content": "..."}}]
     """
     
     try:
@@ -29,22 +35,20 @@ async def architect_node(state: CogmateState) -> CogmateState:
         json_str = response_text[response_text.find("["):response_text.rfind("]")+1]
         outline = json.loads(json_str)
     except Exception as e:
-        # Fallback to mock
-        gagne_events = [
-            "Gain Attention", "Inform Learners of Objectives", "Stimulate Recall of Prior Learning",
-            "Present the Content", "Provide Learning Guidance", "Elicit Performance",
-            "Provide Feedback", "Assess Performance", "Enhance Retention and Transfer"
-        ]
-        outline = [
-            {
-                "title": f"Step {i+1}: {event}",
-                "gagne_event": event,
-                "bloom_level": "Understand",
-                "content": f"Structured content for {event} based on transcript."
-            } for i, event in enumerate(gagne_events)
-        ]
+        # Fallback to a single placeholder if LLM fails, rather than a fixed 9-step list
+        # This allows the outline to "grow" naturally as the transcript progresses.
+        outline = state.get("lesson_outline", [])
+        if not outline:
+            outline = [
+                {
+                    "title": f"Introduction to {state['current_topic']}",
+                    "gagne_event": "Gain Attention",
+                    "bloom_level": "Understand",
+                    "content": "Capturing initial thoughts..."
+                }
+            ]
     
-    return {**state, "lesson_outline": outline}
+    return {**state, "lesson_outline": outline, "rewrite_count": state.get("rewrite_count", 0) + 1}
 
 async def highlighter_node(state: CogmateState) -> CogmateState:
     client = get_gemini_client()
@@ -60,7 +64,7 @@ async def highlighter_node(state: CogmateState) -> CogmateState:
     3. Filter out filler words or casual conversation.
     
     Return ONLY a JSON list of objects with 'tag' and 'score'.
-    Example: [{"tag": "Backpropagation", "score": 5}, {"tag": "Chain Rule", "score": 4}]
+    Example: [{{"tag": "Backpropagation", "score": 5}}, {{"tag": "Chain Rule", "score": 4}}]
     """
     
     try:
@@ -90,7 +94,7 @@ async def sim_student_node(state: CogmateState) -> CogmateState:
     4. Rate the overall pedagogical clarity from 0.0 (confusing) to 1.0 (perfect).
     
     Return ONLY a JSON with 'score' and 'confusion_points' (a list of detailed critiques).
-    Example: {"score": 0.65, "confusion_points": ["The transition from step 2 to 3 is too abrupt.", "The term 'Tensor' is used but never defined."]}
+    Example: {{"score": 0.65, "confusion_points": ["The transition from step 2 to 3 is too abrupt.", "The term 'Tensor' is used but never defined."]}}
     """
     
     try:

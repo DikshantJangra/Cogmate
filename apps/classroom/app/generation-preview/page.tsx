@@ -37,6 +37,7 @@ function GenerationPreviewContent() {
   const { t } = useI18n();
   const hasStartedRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const isGeneratingRef = useRef(false);
 
   const [session, setSession] = useState<GenerationSessionState | null>(() => {
     if (typeof window === 'undefined') return null;
@@ -81,10 +82,13 @@ function GenerationPreviewContent() {
     setSessionLoaded(true);
   }, []);
 
-  // Abort all in-flight requests on unmount
+  // Abort in-flight requests only when explicitly navigating away, not on re-renders
   useEffect(() => {
     return () => {
-      abortControllerRef.current?.abort();
+      // Only abort if we're not actively generating (i.e. a real unmount, not a re-render)
+      if (!isGeneratingRef.current) {
+        abortControllerRef.current?.abort();
+      }
     };
   }, []);
 
@@ -94,6 +98,14 @@ function GenerationPreviewContent() {
     const settings = useSettingsStore.getState();
     const imageProviderConfig = settings.imageProvidersConfig?.[settings.imageProviderId];
     const videoProviderConfig = settings.videoProvidersConfig?.[settings.videoProviderId];
+
+    console.info(
+      `[Cogmate] Generation model: ${modelConfig.modelString}`,
+      `| provider: ${modelConfig.providerId}`,
+      `| hasKey: ${!!modelConfig.apiKey}`,
+      `| serverConfigured: ${!!modelConfig.isServerConfigured}`,
+    );
+
     return {
       'Content-Type': 'application/json',
       'x-model': modelConfig.modelString,
@@ -133,6 +145,7 @@ function GenerationPreviewContent() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
     const signal = controller.signal;
+    isGeneratingRef.current = true;
 
     // Use a local mutable copy so we can update it after PDF parsing
     let currentSession = session;
@@ -823,6 +836,8 @@ function GenerationPreviewContent() {
       }
       sessionStorage.removeItem('generationSession');
       setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      isGeneratingRef.current = false;
     }
   };
 
@@ -836,6 +851,7 @@ function GenerationPreviewContent() {
   }, [session]);
 
   const goBackToHome = () => {
+    isGeneratingRef.current = false;
     abortControllerRef.current?.abort();
     sessionStorage.removeItem('generationSession');
     router.push('/');
@@ -844,9 +860,9 @@ function GenerationPreviewContent() {
   // Still loading session from sessionStorage
   if (!sessionLoaded) {
     return (
-      <div className="min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
-        <div className="text-center text-muted-foreground">
-          <div className="size-8 border-2 border-current border-t-transparent rounded-full animate-spin mx-auto" />
+      <div className="min-h-screen w-full bg-white flex items-center justify-center p-4">
+        <div className="text-center text-slate-400">
+          <div className="size-8 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
         </div>
       </div>
     );
@@ -855,13 +871,13 @@ function GenerationPreviewContent() {
   // No session found
   if (!session) {
     return (
-      <div className="min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
+      <div className="min-h-screen w-full bg-white flex items-center justify-center p-4">
         <Card className="p-8 max-w-md w-full">
           <div className="text-center space-y-4">
             <AlertCircle className="size-12 text-muted-foreground mx-auto" />
             <h2 className="text-xl font-semibold">{t('generation.sessionNotFound')}</h2>
             <p className="text-sm text-muted-foreground">{t('generation.sessionNotFoundDesc')}</p>
-            <Button onClick={() => router.push('/')} className="w-full">
+            <Button onClick={() => router.push('/')} className="w-full bg-teal-600 hover:bg-teal-700 text-white shadow-sm shadow-teal-200">
               <ArrowLeft className="size-4 mr-2" />
               {t('generation.backToHome')}
             </Button>
@@ -877,26 +893,14 @@ function GenerationPreviewContent() {
       : ALL_STEPS[0];
 
   return (
-    <div className="min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex flex-col items-center justify-center p-4 relative overflow-hidden text-center">
-      {/* Background Decor */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div
-          className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse"
-          style={{ animationDuration: '4s' }}
-        />
-        <div
-          className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse"
-          style={{ animationDuration: '6s' }}
-        />
-      </div>
-
+    <div className="min-h-screen w-full bg-white flex flex-col items-center justify-center p-4 relative overflow-hidden text-center">
       {/* Back button */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="absolute top-4 left-4 z-20"
       >
-        <Button variant="ghost" size="sm" onClick={goBackToHome}>
+        <Button variant="ghost" size="sm" onClick={goBackToHome} className="text-slate-400 hover:text-slate-700 hover:bg-slate-50">
           <ArrowLeft className="size-4 mr-2" />
           {t('generation.backToHome')}
         </Button>
@@ -909,7 +913,7 @@ function GenerationPreviewContent() {
           transition={{ duration: 0.5 }}
           className="w-full"
         >
-          <Card className="relative overflow-hidden border-muted/40 shadow-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl min-h-[400px] flex flex-col items-center justify-center p-8 md:p-12">
+          <Card className="relative overflow-hidden border-slate-100 shadow-xl shadow-slate-100/50 bg-white min-h-[400px] flex flex-col items-center justify-center p-8 md:p-12 rounded-[2rem]">
             {/* Progress Dots */}
             <div className="absolute top-6 left-0 right-0 flex justify-center gap-2">
               {activeSteps.map((step, idx) => (
@@ -918,10 +922,10 @@ function GenerationPreviewContent() {
                   className={cn(
                     'h-1.5 rounded-full transition-all duration-500',
                     idx < currentStepIndex
-                      ? 'w-1.5 bg-blue-500/30'
+                      ? 'w-1.5 bg-teal-600/30'
                       : idx === currentStepIndex
-                        ? 'w-8 bg-blue-500'
-                        : 'w-1.5 bg-muted/50',
+                        ? 'w-8 bg-teal-600'
+                        : 'w-1.5 bg-slate-100',
                   )}
                 />
               ))}
@@ -979,14 +983,14 @@ function GenerationPreviewContent() {
                     exit={{ opacity: 0, y: -10 }}
                     className="space-y-2"
                   >
-                    <h2 className="text-2xl font-bold tracking-tight">
+                    <h2 className="text-2xl font-bold tracking-tight text-slate-900">
                       {error
                         ? t('generation.generationFailed')
                         : isComplete
                           ? t('generation.generationComplete')
                           : t(activeStep.title)}
                     </h2>
-                    <p className="text-muted-foreground text-base">
+                    <p className="text-slate-400 text-base">
                       {error
                         ? error
                         : isComplete
@@ -1076,8 +1080,8 @@ function GenerationPreviewContent() {
                 animate={{ opacity: 1 }}
                 className="flex items-center gap-3 text-sm text-muted-foreground/50 font-medium uppercase tracking-widest"
               >
-                <Sparkles className="size-3 animate-pulse" />
-                {t('generation.aiWorking')}
+                <Sparkles className="size-3 text-teal-500 animate-pulse" />
+                <span className="text-slate-400">{t('generation.aiWorking')}</span>
                 {generatedAgents.length > 0 && !showAgentReveal && (
                   <button
                     onClick={() => setShowAgentReveal(true)}
@@ -1111,7 +1115,7 @@ export default function GenerationPreviewPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center">
+        <div className="min-h-screen w-full bg-white flex items-center justify-center">
           <div className="animate-pulse space-y-4 text-center">
             <div className="h-8 w-48 bg-muted rounded mx-auto" />
             <div className="h-4 w-64 bg-muted rounded mx-auto" />

@@ -1458,6 +1458,87 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
       },
     ],
   },
+
+  'nvidia-nim': {
+    id: 'nvidia-nim',
+    name: 'NVIDIA NIM',
+    type: 'openai',
+    defaultBaseUrl: 'https://integrate.api.nvidia.com/v1',
+    requiresApiKey: true,
+    icon: '/logos/nvidia.svg',
+    models: [
+      {
+        id: 'nvidia/llama-3.1-nemotron-ultra-253b-v1',
+        name: 'Llama 3.1 Nemotron Ultra 253B',
+        contextWindow: 128000,
+        outputWindow: 32768,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'nvidia/llama-3.3-nemotron-super-49b-v1',
+        name: 'Llama 3.3 Nemotron Super 49B',
+        contextWindow: 128000,
+        outputWindow: 32768,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'meta/llama-3.3-70b-instruct',
+        name: 'Llama 3.3 70B Instruct',
+        contextWindow: 128000,
+        outputWindow: 32768,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'meta/llama-3.1-405b-instruct',
+        name: 'Llama 3.1 405B Instruct',
+        contextWindow: 128000,
+        outputWindow: 32768,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'meta/llama-3.1-70b-instruct',
+        name: 'Llama 3.1 70B Instruct',
+        contextWindow: 128000,
+        outputWindow: 32768,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'mistralai/mistral-large-2-instruct',
+        name: 'Mistral Large 2',
+        contextWindow: 128000,
+        outputWindow: 32768,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'mistralai/mixtral-8x22b-instruct-v0.1',
+        name: 'Mixtral 8x22B Instruct',
+        contextWindow: 65536,
+        outputWindow: 32768,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'deepseek-ai/deepseek-r1',
+        name: 'DeepSeek R1',
+        contextWindow: 128000,
+        outputWindow: 32768,
+        capabilities: { streaming: true, tools: false, vision: false },
+      },
+      {
+        id: 'qwen/qwen2.5-72b-instruct',
+        name: 'Qwen 2.5 72B Instruct',
+        contextWindow: 32768,
+        outputWindow: 32768,
+        capabilities: { streaming: true, tools: true, vision: false },
+      },
+      {
+        id: 'google/gemma-3-27b-it',
+        name: 'Gemma 3 27B',
+        contextWindow: 128000,
+        outputWindow: 8192,
+        capabilities: { streaming: true, tools: true, vision: true },
+      },
+    ],
+  },
 };
 
 /**

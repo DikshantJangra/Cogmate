@@ -9,21 +9,23 @@ export async function POST(req: NextRequest) {
   let model: string | undefined;
   try {
     const body = await req.json();
-    const { apiKey, baseUrl, providerType } = body;
+    const { apiKey, providerType } = body;
+    const baseUrl = body.baseUrl || undefined; // treat empty string as undefined
     model = body.model;
 
     if (!model) {
       return apiError('MISSING_REQUIRED_FIELD', 400, 'Model name is required');
     }
 
-    // Parse model string and resolve server-side fallback
+    // Parse model string and resolve — always use client credentials for test connections
     let languageModel;
     try {
       const result = await resolveModel({
         modelString: model,
         apiKey: apiKey || '',
-        baseUrl: baseUrl || undefined,
+        baseUrl,
         providerType,
+        isVerifyRequest: true,
       });
       languageModel = result.model;
     } catch (error) {

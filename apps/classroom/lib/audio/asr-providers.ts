@@ -168,8 +168,9 @@ export async function transcribeAudio(
   const provider = ASR_PROVIDERS[config.providerId as keyof typeof ASR_PROVIDERS];
 
   // Validate API key if required (only for built-in providers with known config)
-  if (provider?.requiresApiKey && !config.apiKey) {
-    throw new Error(`API key required for ASR provider: ${config.providerId}`);
+  // Skip validation if baseUrl is provided (likely a local/proxy server)
+  if (provider?.requiresApiKey && !config.apiKey && !config.baseUrl) {
+    throw new Error(`ASR API key required for ${provider.name}. Please configure it in Settings -> Providers, or switch to a different provider in Settings -> Audio.`);
   }
 
   switch (config.providerId) {
@@ -198,7 +199,7 @@ async function transcribeOpenAIWhisper(
   audioBuffer: Buffer | Blob,
 ): Promise<ASRTranscriptionResult> {
   const openai = createOpenAI({
-    apiKey: config.apiKey!,
+    apiKey: config.apiKey || 'sk-no-key-required',
     baseURL: config.baseUrl || ASR_PROVIDERS['openai-whisper'].defaultBaseUrl,
   });
 

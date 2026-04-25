@@ -6,9 +6,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Mic, MicOff, RotateCcw, Radio, Brain, Tag, AlertTriangle,
   ChevronDown, ChevronUp, Loader2, Wifi, WifiOff, ArrowLeft,
-  Send, Download, GraduationCap,
+  Send, Download, GraduationCap, Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { createLogger } from '@/lib/logger';
+import { useASR } from '@/lib/audio/use-asr';
+
+const log = createLogger('LiveLecture');
 
 interface LessonSection {
   title: string;
@@ -57,6 +61,43 @@ export default function LiveLecturePage() {
   });
   const [topic, setTopic] = useState('Live Lecture');
   const [outlineOpen, setOutlineOpen] = useState(true);
+
+  // STT hook
+  const { start: startSTT, stop: stopSTT, isListening: isRecording, isFallingBack, asrProviderId } = useASR({
+    onResult: (result) => {
+      if (result.isFinal && result.text.trim()) {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: 'transcript_chunk',
+            text: result.text.trim(),
+            timestamp: new Date().toISOString()
+          }));
+        }
+      }
+    },
+    onError: (err) => {
+      log.warn('STT Error:', err.message);
+      if (err.message.includes('network')) {
+        setSttError('Network error: Chrome speech service unreachable. Go to Settings -> Audio and switch ASR Provider to "OpenAI Whisper" for a more reliable (hybrid/local) experience.');
+      } else {
+        setSttError(err.message);
+      }
+    }
+  });
+
+  const startRecording = useCallback(() => {
+    setSttError(null);
+    startSTT();
+  }, [startSTT]);
+
+  const [sttError, setSttError] = useState<string | null>(null);
+
+  const toggleRecording = () => {
+    if (isRecording) stopSTT();
+    else {
+      startRecording();
+    }
+  };
 
   // Manual inject
   const [injectText, setInjectText] = useState('');
@@ -122,6 +163,7 @@ export default function LiveLecturePage() {
   const sendReset = () => {
     wsRef.current?.send(JSON.stringify({ type: 'reset' }));
     setChunks([]);
+    setSttError(null);
     setState({ transcript: [], outline: [], tags: [], confusion: [], eval_score: 1, topic });
   };
 
@@ -192,6 +234,31 @@ export default function LiveLecturePage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleGenerateCourse = () => {
+    if (chunks.length === 0) return;
+
+    const fullTranscript = chunks.map((c) => c.text).join('\n');
+    const generationSession = {
+      requirements: {
+        requirement: `Build a course based on this live lecture transcript for topic "${state.topic || topic}":\n\n${fullTranscript}`,
+        webSearch: false,
+        interactiveMode: false,
+      },
+      // Pass existing outline as a hint if it exists
+      sceneOutlines: state.outline.length > 0 ? state.outline.map(s => ({
+        id: `hint_${Math.random().toString(36).slice(2, 9)}`,
+        type: 'slide',
+        title: s.title,
+        description: s.content,
+        keyPoints: [],
+        order: 0 // Will be re-ordered
+      })) : undefined
+    };
+
+    sessionStorage.setItem('generationSession', JSON.stringify(generationSession));
+    router.push('/generation-preview');
+  };
+
   const evalColor = state.eval_score >= 0.8
     ? 'text-emerald-600' : state.eval_score >= 0.6
     ? 'text-amber-500' : 'text-red-500';
@@ -244,13 +311,23 @@ export default function LiveLecturePage() {
           </div>
 
           {(chunks.length > 0 || state.outline.length > 0) && (
-            <button
-              onClick={handleExport}
-              className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-              title="Export notes as Markdown"
-            >
-              <Download className="size-3.5" />
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleExport}
+                className="size-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                title="Export notes as Markdown"
+              >
+                <Download className="size-3.5" />
+              </button>
+              <button
+                onClick={handleGenerateCourse}
+                className="h-7 px-2.5 rounded-lg flex items-center gap-1.5 bg-teal-50 text-teal-600 hover:bg-teal-100 transition-colors text-[10px] font-semibold border border-teal-100"
+                title="Generate a full classroom from this lecture"
+              >
+                <Sparkles className="size-3" />
+                Generate Classroom
+              </button>
+            </div>
           )}
 
           <button
@@ -269,20 +346,66 @@ export default function LiveLecturePage() {
         {/* ── Left: Transcript Feed ── */}
         <div className="w-[42%] flex flex-col border-r border-slate-100 bg-white">
           <div className="px-4 py-2.5 border-b border-slate-100 flex items-center gap-2">
-            <Mic className="size-3 text-slate-400" />
+            <Mic className={cn("size-3", isRecording ? "text-red-500 animate-pulse" : "text-slate-400")} />
             <span className="text-xs font-medium text-slate-500 uppercase tracking-widest">Transcript</span>
+            <span className="text-[9px] text-slate-400 font-normal lowercase tracking-normal bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+              via {asrProviderId === 'browser-native' ? 'browser' : 'server'}
+            </span>
             <span className="ml-auto text-[10px] text-slate-300">{chunks.length} chunks</span>
+            <button
+              onClick={toggleRecording}
+              className={cn(
+                "ml-2 size-6 rounded-full flex items-center justify-center transition-all",
+                isRecording ? "bg-red-50 text-red-500" : "bg-slate-50 text-slate-400 hover:bg-slate-100"
+              )}
+              title={isRecording ? "Stop Recording" : "Start Recording"}
+            >
+              {isRecording ? <MicOff className="size-3" /> : <Mic className="size-3" />}
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
             <AnimatePresence initial={false}>
               {chunks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-300">
-                  <MicOff className="size-8" />
-                  <p className="text-xs">Waiting for audio…</p>
-                  <p className="text-[10px] text-slate-200 text-center max-w-[200px]">
-                    Use the Listener app or type below to inject transcript manually.
-                  </p>
+                <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
+                  <div className={cn(
+                    "size-16 rounded-3xl flex items-center justify-center transition-all duration-500",
+                    isRecording ? "bg-red-50 text-red-500 scale-110 shadow-lg shadow-red-100" : "bg-slate-50 text-slate-200"
+                  )}>
+                    {isRecording ? <Mic className="size-8 animate-pulse" /> : <MicOff className="size-8" />}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-slate-700">
+                      {isFallingBack 
+                        ? "Switching to server transcription..." 
+                        : isRecording 
+                          ? "Listening to your lecture..." 
+                          : "Waiting for audio..."}
+                    </p>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      {sttError 
+                        ? sttError 
+                        : isFallingBack
+                          ? "Chrome service failed. Cogmate is automatically switching to server-side ASR for better reliability."
+                          : isRecording 
+                            ? "Speak clearly. Your transcript and outline will appear here in real-time."
+                            : asrProviderId === 'browser-native'
+                              ? "Using Chrome's speech service. If you encounter network errors, switch ASR Provider to Whisper in Settings."
+                              : "Using hybrid transcription (MediaRecorder + Server). Reliable for all environments."}
+                    </p>
+                  </div>
+                  {!isRecording && (
+                    <button
+                      onClick={startRecording}
+                      className={cn(
+                        "px-6 py-2 rounded-xl text-white text-xs font-semibold shadow-sm transition-colors flex items-center gap-2",
+                        sttError ? "bg-amber-600 hover:bg-amber-700 shadow-amber-200" : "bg-teal-600 hover:bg-teal-700 shadow-teal-200"
+                      )}
+                    >
+                      <Mic className="size-3.5" />
+                      {sttError ? "Try Recording Again" : "Start Mic Recording"}
+                    </button>
+                  )}
                 </div>
               ) : (
                 chunks.map((c, i) => (

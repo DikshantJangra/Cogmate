@@ -14,3 +14,4 @@ class CogmateState(TypedDict):
     confusion_points: List[str]
     importance_tags: List[str]
     slide_context: str
+    rewrite_count: int

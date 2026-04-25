@@ -4,6 +4,7 @@ from typing import List, Dict
 import json
 import asyncio
 import datetime
+import logging
 from app.core.graph import cogmate_app
 from app.core.state import CogmateState
 
@@ -23,6 +24,7 @@ class ConnectionManager:
             "confusion_points": [],
             "importance_tags": [],
             "slide_context": "",
+            "rewrite_count": 0,
         }
 
     async def connect_audio(self, ws: WebSocket):
@@ -103,10 +105,13 @@ async def audio_endpoint(websocket: WebSocket):
 
 async def _run_pipeline(state: CogmateState):
     try:
+        logging.info(f"Running LangGraph pipeline for topic: {state['current_topic']}")
         final_state = await cogmate_app.ainvoke(state)
         manager.session_state.update(final_state)
+        logging.info("Pipeline complete. Broadcasting snapshot.")
         await manager.broadcast_ui(manager._build_snapshot())
     except Exception as e:
+        logging.error(f"Pipeline error: {str(e)}")
         await manager.broadcast_ui({"type": "error", "message": str(e)})
 
 
@@ -127,6 +132,7 @@ async def ui_endpoint(websocket: WebSocket):
                     manager.session_state["importance_tags"] = []
                     manager.session_state["confusion_points"] = []
                     manager.session_state["eval_score"] = 1.0
+                    manager.session_state["rewrite_count"] = 0
                     await manager.broadcast_ui(manager._build_snapshot())
             except Exception:
                 pass

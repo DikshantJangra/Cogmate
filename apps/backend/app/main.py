@@ -7,6 +7,7 @@ from app.api.process import router as process_router
 from app.api.rag import router as rag_router
 from app.api.export import router as export_router
 from app.api.quiz import router as quiz_router
+from app.api.transcript import router as transcript_router
 from app.core.auth import get_current_user
 from dotenv import load_dotenv
 import os
@@ -33,6 +34,7 @@ app.include_router(process_router, prefix="/api/process", tags=["Process"])
 app.include_router(rag_router, prefix="/api/rag", tags=["RAG"])
 app.include_router(export_router, prefix="/api/export", tags=["Export"])
 app.include_router(quiz_router, prefix="/api/quiz", tags=["Quiz"])
+app.include_router(transcript_router, prefix="/api/transcript", tags=["ASR"])
 
 @app.get("/health")
 def health_check():

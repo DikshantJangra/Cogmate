@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { createCustomProviderSettings, getProviderTypeLabel } from './utils';
 import { ProviderList } from './provider-list';
 import { ProviderConfigPanel } from './provider-config-panel';
+import { ModelSelector } from './model-selector';
 import { PDFSettings } from './pdf-settings';
 import { PDF_PROVIDERS } from '@/lib/pdf/constants';
 import type { PDFProviderId } from '@/lib/pdf/types';
@@ -210,7 +211,7 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
 
   // Get settings from store
   const providerId = useSettingsStore((state) => state.providerId);
-  const _modelId = useSettingsStore((state) => state.modelId);
+  const modelId = useSettingsStore((state) => state.modelId);
   const providersConfig = useSettingsStore((state) => state.providersConfig);
   const pdfProviderId = useSettingsStore((state) => state.pdfProviderId);
   const pdfProvidersConfig = useSettingsStore((state) => state.pdfProvidersConfig);
@@ -703,10 +704,29 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[85vh] p-0 gap-0 block" showCloseButton={false}>
+      <DialogContent className="h-[85vh] p-0 gap-0 block [&]:bg-white [&]:text-slate-900" showCloseButton={false} style={{ colorScheme: 'light' }}>
         <DialogTitle className="sr-only">{t('settings.title')}</DialogTitle>
         <DialogDescription className="sr-only">{t('settings.description')}</DialogDescription>
-        <div className="flex h-full overflow-hidden">
+        <div className="flex h-full overflow-hidden" style={{
+          '--background': 'oklch(1 0 0)',
+          '--foreground': 'oklch(0.145 0 0)',
+          '--card': 'oklch(1 0 0)',
+          '--card-foreground': 'oklch(0.145 0 0)',
+          '--popover': 'oklch(1 0 0)',
+          '--popover-foreground': 'oklch(0.145 0 0)',
+          '--primary': '#0d9488',
+          '--primary-foreground': 'oklch(0.985 0 0)',
+          '--secondary': 'oklch(0.97 0 0)',
+          '--secondary-foreground': 'oklch(0.205 0 0)',
+          '--muted': 'oklch(0.97 0 0)',
+          '--muted-foreground': 'oklch(0.556 0 0)',
+          '--accent': 'oklch(0.97 0 0)',
+          '--accent-foreground': 'oklch(0.205 0 0)',
+          '--destructive': 'oklch(0.58 0.22 27)',
+          '--border': 'oklch(0.922 0 0)',
+          '--input': 'oklch(0.922 0 0)',
+          '--ring': 'oklch(0.708 0 0)',
+        } as React.CSSProperties}>
           {/* Left Sidebar - Navigation */}
           <div className="flex-shrink-0 bg-muted/30 p-3 space-y-1" style={{ width: sidebarWidth }}>
             <button
@@ -1018,25 +1038,39 @@ export function SettingsDialog({ open, onOpenChange, initialSection }: SettingsD
             <div className="flex-1 overflow-y-auto p-5">
               {activeSection === 'general' && <GeneralSettings />}
 
-              {activeSection === 'providers' && selectedProvider && (
-                <ProviderConfigPanel
-                  provider={selectedProvider}
-                  initialApiKey={providersConfig[selectedProviderId]?.apiKey || ''}
-                  initialBaseUrl={providersConfig[selectedProviderId]?.baseUrl || ''}
-                  initialRequiresApiKey={
-                    providersConfig[selectedProviderId]?.requiresApiKey ?? true
-                  }
-                  providersConfig={providersConfig}
-                  onConfigChange={(apiKey, baseUrl, requiresApiKey) =>
-                    handleProviderConfigChange(selectedProviderId, apiKey, baseUrl, requiresApiKey)
-                  }
-                  onSave={handleProviderConfigSave}
-                  onEditModel={(index) => handleEditModel(selectedProviderId, index)}
-                  onDeleteModel={(index) => handleDeleteModel(selectedProviderId, index)}
-                  onAddModel={handleAddModel}
-                  onResetToDefault={() => handleResetProvider(selectedProviderId)}
-                  isBuiltIn={providersConfig[selectedProviderId]?.isBuiltIn ?? true}
-                />
+              {activeSection === 'providers' && (
+                <div className="space-y-6">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-foreground">Active Model</label>
+                    <p className="text-xs text-muted-foreground">Click a model to use it for generation.</p>
+                    <ModelSelector
+                      providerId={providerId}
+                      modelId={modelId}
+                      onModelChange={(pid, mid) => setModel(pid, mid)}
+                      providersConfig={providersConfig}
+                    />
+                  </div>
+                  {selectedProvider && (
+                    <ProviderConfigPanel
+                      provider={selectedProvider}
+                      initialApiKey={providersConfig[selectedProviderId]?.apiKey || ''}
+                      initialBaseUrl={providersConfig[selectedProviderId]?.baseUrl || ''}
+                      initialRequiresApiKey={
+                        providersConfig[selectedProviderId]?.requiresApiKey ?? true
+                      }
+                      providersConfig={providersConfig}
+                      onConfigChange={(apiKey, baseUrl, requiresApiKey) =>
+                        handleProviderConfigChange(selectedProviderId, apiKey, baseUrl, requiresApiKey)
+                      }
+                      onSave={handleProviderConfigSave}
+                      onEditModel={(index) => handleEditModel(selectedProviderId, index)}
+                      onDeleteModel={(index) => handleDeleteModel(selectedProviderId, index)}
+                      onAddModel={handleAddModel}
+                      onResetToDefault={() => handleResetProvider(selectedProviderId)}
+                      isBuiltIn={providersConfig[selectedProviderId]?.isBuiltIn ?? true}
+                    />
+                  )}
+                </div>
               )}
 
               {activeSection === 'pdf' && (

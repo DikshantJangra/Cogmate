@@ -21,13 +21,8 @@ import { nanoid } from 'nanoid';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/utils/database';
-
-// ------- Types -------
-interface SetupStatus {
-  hasModel: boolean;
-  hasApiKey: boolean;
-  modelName: string;
-}
+import { useSettingsStore } from '@/lib/store/settings';
+import { SettingsDialog } from '@/components/settings';
 
 export default function HomePage() {
   const router = useRouter();
@@ -35,12 +30,22 @@ export default function HomePage() {
   const [recentStages, setRecentStages] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'generate' | 'live'>('generate');
   const [isFocused, setIsFocused] = useState(false);
-  const [setupStatus, setSetupStatus] = useState<SetupStatus | null>(null);
-  const [setupChecking, setSetupChecking] = useState(true);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+
+  // Read model config directly from the settings store (always up-to-date)
+  const providerId = useSettingsStore((s) => s.providerId);
+  const modelId = useSettingsStore((s) => s.modelId);
+  const providersConfig = useSettingsStore((s) => s.providersConfig);
+
+  const providerCfg = providersConfig[providerId];
+  const isConfigured = !!modelId && (providerCfg?.isServerConfigured || !!providerCfg?.apiKey || !providerCfg?.requiresApiKey);
+  const displayLabel = isConfigured
+    ? `${providerCfg?.name ?? providerId}: ${modelId.length > 24 ? modelId.slice(0, 24) + '…' : modelId}`
+    : 'Setup Required';
 
   // Load recent sessions
   useEffect(() => {
@@ -48,63 +53,6 @@ export default function HomePage() {
       .then(setRecentStages)
       .catch(() => {});
   }, []);
-
-  // Check if the app is properly configured (API key + model)
-  useEffect(() => {
-    const checkSetup = async () => {
-      setSetupChecking(true);
-      try {
-        // Check server-providers endpoint for available models
-        const res = await fetch('/api/server-providers');
-        if (res.ok) {
-          const data = await res.json();
-          const providers = data?.data?.providers || [];
-          const hasAnyProvider = providers.length > 0;
-
-          if (hasAnyProvider) {
-            const firstProvider = providers[0];
-            const firstModel = firstProvider?.models?.[0];
-            setSetupStatus({
-              hasModel: !!firstModel,
-              hasApiKey: true, // server-providers means server-side keys are configured
-              modelName: firstModel?.name || firstModel?.id || firstProvider?.name || 'Unknown',
-            });
-          } else {
-            // No server providers — check if user has set up local model config
-            const settingsRaw = localStorage.getItem('settings-storage');
-            if (settingsRaw) {
-              try {
-                const settings = JSON.parse(settingsRaw);
-                const state = settings?.state;
-                const hasKey = !!(state?.providers && Object.keys(state.providers).some(
-                  (k: string) => state.providers[k]?.apiKey
-                ));
-                setSetupStatus({
-                  hasModel: !!state?.modelId,
-                  hasApiKey: hasKey,
-                  modelName: state?.modelId || '',
-                });
-              } catch {
-                setSetupStatus({ hasModel: false, hasApiKey: false, modelName: '' });
-              }
-            } else {
-              setSetupStatus({ hasModel: false, hasApiKey: false, modelName: '' });
-            }
-          }
-        } else {
-          setSetupStatus({ hasModel: false, hasApiKey: false, modelName: '' });
-        }
-      } catch {
-        // Can't reach server — likely not running
-        setSetupStatus({ hasModel: false, hasApiKey: false, modelName: '' });
-      } finally {
-        setSetupChecking(false);
-      }
-    };
-    checkSetup();
-  }, []);
-
-  const isConfigured = setupStatus?.hasModel || setupStatus?.hasApiKey;
 
   // Handle PDF file selection
   const handlePdfSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,7 +73,7 @@ export default function HomePage() {
     }
 
     if (!isConfigured) {
-      setErrorBanner('No AI model configured. Open Settings (⚙) to add an API key first.');
+      setSettingsOpen(true);
       return;
     }
 
@@ -200,19 +148,21 @@ export default function HomePage() {
         </div>
         <div className="flex items-center gap-2">
           {/* Setup Status Indicator */}
-          {!setupChecking && (
-            <div className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium",
+          <div
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-medium cursor-pointer",
               isConfigured
-                ? "bg-emerald-50 text-emerald-600 border border-emerald-100"
-                : "bg-amber-50 text-amber-600 border border-amber-100"
-            )}>
-              <div className={cn("size-1.5 rounded-full", isConfigured ? "bg-emerald-500" : "bg-amber-500")} />
-              {isConfigured ? 'Ready' : 'Setup Required'}
-            </div>
-          )}
+                ? "bg-emerald-50 text-emerald-600 border border-emerald-100 hover:bg-emerald-100"
+                : "bg-amber-50 text-amber-600 border border-amber-100 hover:bg-amber-100"
+            )}
+            onClick={() => setSettingsOpen(true)}
+            title="Click to change model"
+          >
+            <div className={cn("size-1.5 rounded-full shrink-0", isConfigured ? "bg-emerald-500" : "bg-amber-500")} />
+            {displayLabel}
+          </div>
           <button
-            onClick={() => router.push('/generation-preview')}
+            onClick={() => setSettingsOpen(true)}
             className="size-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
             title="Settings"
           >
@@ -459,7 +409,7 @@ export default function HomePage() {
 
         {/* Setup Guide (if not configured) */}
         <AnimatePresence>
-          {!isConfigured && !setupChecking && (
+          {!isConfigured && (
             <motion.div
               key="setup-guide"
               initial={{ opacity: 0, y: 10 }}
@@ -473,43 +423,50 @@ export default function HomePage() {
                     <AlertCircle className="size-4 text-amber-600" />
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-sm font-semibold text-slate-800">Setup Required — Add an API Key to Continue</h3>
+                    <h3 className="text-sm font-semibold text-slate-800">No AI model configured</h3>
                     <p className="text-xs text-slate-500 leading-relaxed">
-                      Cogmate needs an AI provider to generate classrooms. Get a key from any provider below:
+                      Click the <Settings className="size-3 inline mx-0.5" /> settings icon above to add an API key, or use a free local model with Ollama.
                     </p>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pl-11">
-                  {[
-                    { name: 'Google Gemini', env: 'GOOGLE_API_KEY', url: 'https://aistudio.google.com/apikey', free: true },
-                    { name: 'OpenAI', env: 'OPENAI_API_KEY', url: 'https://platform.openai.com/api-keys', free: false },
-                    { name: 'Anthropic', env: 'ANTHROPIC_API_KEY', url: 'https://console.anthropic.com/', free: false },
-                  ].map((p) => (
-                    <a
-                      key={p.name}
-                      href={p.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:border-teal-300 hover:shadow-sm transition-all text-left group"
-                    >
-                      <div className="size-6 rounded bg-slate-100 group-hover:bg-teal-50 flex items-center justify-center transition-colors">
-                        <Sparkles className="size-3 text-slate-400 group-hover:text-teal-500" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-slate-700 truncate">{p.name}</p>
-                        <p className="text-[10px] text-slate-400">{p.free ? 'Free tier available' : 'Paid'}</p>
-                      </div>
-                    </a>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-11">
+                  <button
+                    onClick={() => setSettingsOpen(true)}
+                    className="flex items-center gap-2 p-3 rounded-xl border border-teal-200 bg-teal-50 hover:bg-teal-100 transition-all text-left group"
+                  >
+                    <div className="size-6 rounded bg-teal-100 group-hover:bg-teal-200 flex items-center justify-center transition-colors">
+                      <Settings className="size-3 text-teal-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-slate-700">Open Settings</p>
+                      <p className="text-[10px] text-slate-400">Add any API key (Gemini, OpenAI…)</p>
+                    </div>
+                  </button>
+                  <a
+                    href="https://ollama.com"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 p-3 rounded-xl border border-slate-200 bg-white hover:border-teal-300 hover:shadow-sm transition-all text-left group"
+                  >
+                    <div className="size-6 rounded bg-slate-100 group-hover:bg-teal-50 flex items-center justify-center transition-colors">
+                      <Sparkles className="size-3 text-slate-400 group-hover:text-teal-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-slate-700">Ollama (Local LLM)</p>
+                      <p className="text-[10px] text-slate-400">Free, runs on your machine</p>
+                    </div>
+                  </a>
                 </div>
                 <p className="text-[10px] text-slate-400 pl-11 leading-relaxed">
-                  Copy the key → create <code className="text-slate-600 bg-white px-1 py-0.5 rounded border border-slate-200">apps/classroom/.env.local</code> → add <code className="text-slate-600 bg-white px-1 py-0.5 rounded border border-slate-200">GOOGLE_API_KEY=your_key</code> → restart dev server.
+                  For Ollama: install it, run <code className="text-slate-600 bg-white px-1 py-0.5 rounded border border-slate-200">ollama pull llama3.2</code>, then in Settings → Providers → Ollama, select a model.
                 </p>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
+
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }

@@ -23,8 +23,8 @@ def create_cogmate_graph():
     
     # 4. Define conditional logic for the feedback loop
     def should_rewrite(state: CogmateState):
-        if state.get("eval_score", 1.0) < 0.8:
-            return "architect" # Send back for rewrite
+        if state.get("eval_score", 1.0) < 0.8 and state.get("rewrite_count", 0) < 2:
+            return "architect" # Send back for rewrite (max 2 times)
         return END
 
     workflow.add_conditional_edges(

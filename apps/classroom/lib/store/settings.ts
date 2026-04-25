@@ -1248,21 +1248,24 @@ export const useSettingsStore = create<SettingsState>()(
                 }
               }
 
-              // LLM auto-select: when no provider selected, OR when selected provider
-              // has no API key and is not server-configured (e.g. stale 'openai' default)
+              // LLM auto-select: ONLY when no provider/model is set at all.
+              // Never override a user's explicit choice — if they have an apiKey set
+              // for their chosen provider, respect it regardless of server config.
               const currentProviderCfg = newProvidersConfig[state.providerId as ProviderId];
               const currentProviderUsable =
-                currentProviderCfg?.isServerConfigured || !!currentProviderCfg?.apiKey;
+                currentProviderCfg?.isServerConfigured ||
+                !!currentProviderCfg?.apiKey ||
+                currentProviderCfg?.requiresApiKey === false;
+              const currentModelValid = !!(state.modelId && currentProviderUsable);
               let autoProviderId: ProviderId | undefined;
               let autoModelId: string | undefined;
-              if (!state.providerId || !state.modelId || !currentProviderUsable) {
-                // Prefer groq if server-configured, then fall back to others
+              if (!currentModelValid) {
+                // No usable provider set — auto-select best available
                 const providerEntries = Object.entries(newProvidersConfig).sort(([a], [b]) =>
                   a === 'groq' ? -1 : b === 'groq' ? 1 : 0,
                 );
                 for (const [pid, cfg] of providerEntries) {
-                  if (cfg.isServerConfigured) {
-                    // Prefer server-restricted models, fall back to built-in list
+                  if (cfg.isServerConfigured || cfg.apiKey) {
                     const serverModels = cfg.serverModels;
                     const modelId = serverModels?.length
                       ? serverModels[0]
@@ -1285,11 +1288,11 @@ export const useSettingsStore = create<SettingsState>()(
                 videoProvidersConfig: newVideoConfig,
                 webSearchProvidersConfig: newWebSearchConfig,
                 autoConfigApplied: true,
-                // Validated selections
-                ...(validLLMProvider !== state.providerId && {
+                // Only update provider/model if they actually changed to something different
+                ...(validLLMProvider && validLLMProvider !== state.providerId && {
                   providerId: validLLMProvider as ProviderId,
                 }),
-                ...(validLLMModel !== state.modelId && { modelId: validLLMModel }),
+                ...(validLLMModel && validLLMModel !== state.modelId && { modelId: validLLMModel }),
                 ...(validTTSProvider !== state.ttsProviderId && {
                   ttsProviderId: validTTSProvider as TTSProviderId,
                   ttsVoice: validTTSVoice,
@@ -1516,15 +1519,17 @@ export const useSettingsStore = create<SettingsState>()(
         ensureBuiltInImageProviders(merged);
         ensureBuiltInVideoProviders(merged);
         ensureValidProviderSelections(merged);
-        // Reset broken/preview models — force re-auto-select
+        // Reset only truly broken/preview models
         const BROKEN_MODELS = new Set(['gemini-3.1-pro-preview', 'gemini-3-flash-preview']);
-        if (!merged.modelId || BROKEN_MODELS.has(merged.modelId as string) || (merged.providerId as string) === 'google') {
+        if (BROKEN_MODELS.has(merged.modelId as string)) {
           merged.modelId = '';
           merged.autoConfigApplied = false;
         }
-        // Reset browser-native-tts so google-tts gets auto-selected on next load
-        if (merged.ttsProviderId === 'browser-native-tts') {
-          merged.autoConfigApplied = false;
+        // Only reset if no model at all and no usable provider
+        if (!merged.modelId) {
+          const cfg = merged.providersConfig?.[merged.providerId as ProviderId];
+          const usable = cfg?.isServerConfigured || !!cfg?.apiKey || cfg?.requiresApiKey === false;
+          if (!usable) merged.autoConfigApplied = false;
         }
         return merged as SettingsState;
       },
