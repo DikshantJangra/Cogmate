@@ -5,6 +5,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { pickBestBrowserVoice } from '@/lib/audio/browser-voice-picker';
 
 // Note: Window.SpeechSynthesis declaration is already in the global scope
 
@@ -75,11 +76,20 @@ export function useBrowserTTS(options: UseBrowserTTSOptions = {}) {
       utterance.volume = volume;
       utterance.lang = lang;
 
-      // Set voice if specified
-      if (voiceURI) {
+      // Set voice: try explicit match, fall back to best quality voice
+      let voiceSet = false;
+      if (voiceURI && voiceURI !== 'default') {
         const voice = availableVoices.find((v) => v.voiceURI === voiceURI);
         if (voice) {
           utterance.voice = voice;
+          voiceSet = true;
+        }
+      }
+      if (!voiceSet && availableVoices.length > 0) {
+        const best = pickBestBrowserVoice(availableVoices, text);
+        if (best.voice) {
+          utterance.voice = best.voice;
+          utterance.lang = best.lang;
         }
       }
 

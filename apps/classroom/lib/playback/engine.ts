@@ -37,6 +37,7 @@ import type { AudioPlayer } from '@/lib/utils/audio-player';
 import { ActionEngine } from '@/lib/action/engine';
 import { useCanvasStore } from '@/lib/store/canvas';
 import { useSettingsStore } from '@/lib/store/settings';
+import { pickBestBrowserVoice } from '@/lib/audio/browser-voice-picker';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('PlaybackEngine');
@@ -46,7 +47,6 @@ const log = createLogger('PlaybackEngine');
  * Intentionally low: mixed Chinese text often contains punctuation,
  * numbers, and short Latin fragments (e.g. "AI课堂").
  */
-const CJK_LANG_THRESHOLD = 0.3;
 
 export class PlaybackEngine {
   private scenes: Scene[] = [];
@@ -662,13 +662,14 @@ export class PlaybackEngine {
       }
     }
     if (!voiceFound) {
-      // No usable voice configured — detect text language so the browser
-      // auto-selects an appropriate voice.
-      const cjkRatio =
-        chunkText.length > 0
-          ? (chunkText.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length / chunkText.length
-          : 0;
-      utterance.lang = cjkRatio > CJK_LANG_THRESHOLD ? 'zh-CN' : 'en-US';
+      // No usable voice configured — pick the best quality voice for detected language
+      const best = pickBestBrowserVoice(voices, chunkText);
+      if (best.voice) {
+        utterance.voice = best.voice;
+        utterance.lang = best.voice.lang;
+      } else {
+        utterance.lang = best.lang;
+      }
     }
 
     utterance.onend = () => {

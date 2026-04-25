@@ -1,8 +1,9 @@
 'use client';
 
+import { pickBestBrowserVoice, detectLangFromText } from '@/lib/audio/browser-voice-picker';
+
 const VOICES_LOAD_TIMEOUT_MS = 2000;
 const PREVIEW_TIMEOUT_MS = 30000;
-const CJK_LANG_THRESHOLD = 0.3;
 
 type PlayBrowserTTSPreviewOptions = {
   text: string;
@@ -15,12 +16,6 @@ function createAbortError(): Error {
   const error = new Error('Browser TTS preview canceled');
   error.name = 'AbortError';
   return error;
-}
-
-function inferPreviewLang(text: string): string {
-  const cjkCount = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length;
-  const ratio = text.length > 0 ? cjkCount / text.length : 0;
-  return ratio > CJK_LANG_THRESHOLD ? 'zh-CN' : 'en-US';
 }
 
 export function isBrowserTTSAbortError(error: unknown): boolean {
@@ -68,24 +63,26 @@ export async function ensureVoicesLoaded(): Promise<SpeechSynthesisVoice[]> {
   });
 }
 
-/** Resolve a browser voice by voiceURI, name, or lang, with language fallback by text. */
+/** Resolve a browser voice by voiceURI, name, or lang, with smart fallback. */
 export function resolveBrowserVoice(
   voices: SpeechSynthesisVoice[],
   voiceNameOrLang: string,
   text: string,
 ): { voice: SpeechSynthesisVoice | null; lang: string } {
   const target = voiceNameOrLang.trim();
-  const matchedVoice =
-    target && target !== 'default'
-      ? voices.find(
-          (voice) => voice.voiceURI === target || voice.name === target || voice.lang === target,
-        ) || null
-      : null;
 
-  return {
-    voice: matchedVoice,
-    lang: matchedVoice?.lang || inferPreviewLang(text),
-  };
+  // Try explicit match first
+  if (target && target !== 'default') {
+    const matchedVoice = voices.find(
+      (voice) => voice.voiceURI === target || voice.name === target || voice.lang === target,
+    );
+    if (matchedVoice) {
+      return { voice: matchedVoice, lang: matchedVoice.lang };
+    }
+  }
+
+  // No explicit match — pick best quality voice for detected language
+  return pickBestBrowserVoice(voices, text);
 }
 
 /**

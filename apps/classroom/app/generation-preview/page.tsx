@@ -38,6 +38,7 @@ function GenerationPreviewContent() {
   const hasStartedRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isGeneratingRef = useRef(false);
+  const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [session, setSession] = useState<GenerationSessionState | null>(() => {
     if (typeof window === 'undefined') return null;
@@ -82,11 +83,23 @@ function GenerationPreviewContent() {
     setSessionLoaded(true);
   }, []);
 
-  // Abort in-flight requests only when explicitly navigating away, not on re-renders
+  // Abort in-flight requests on true unmount, but tolerate React Strict Mode
+  // double-mount cycles. In Strict Mode (dev), React unmounts then immediately
+  // remounts — we delay the abort slightly so the remount can cancel it.
   useEffect(() => {
     return () => {
-      // Always abort on unmount to prevent hanging requests
-      abortControllerRef.current?.abort();
+      // Reset hasStartedRef so generation can restart on Strict Mode remount
+      hasStartedRef.current = false;
+      // Delay abort to give Strict Mode remount a chance to take over.
+      // If the component truly unmounted (navigation), the abort fires.
+      // If it's a Strict Mode re-mount, startGeneration() will create a new
+      // controller and the old one (captured here) gets aborted harmlessly
+      // since no fetches reference it anymore.
+      const controllerToAbort = abortControllerRef.current;
+      abortControllerRef.current = null;
+      cleanupTimerRef.current = setTimeout(() => {
+        controllerToAbort?.abort();
+      }, 50);
     };
   }, []);
 
@@ -137,6 +150,12 @@ function GenerationPreviewContent() {
   // Main generation flow
   const startGeneration = async () => {
     if (!session) return;
+
+    // Cancel any pending Strict Mode cleanup abort
+    if (cleanupTimerRef.current) {
+      clearTimeout(cleanupTimerRef.current);
+      cleanupTimerRef.current = null;
+    }
 
     // Create AbortController for this generation run
     abortControllerRef.current?.abort();
