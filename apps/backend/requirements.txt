@@ -11,7 +11,8 @@ markdown-it-py==3.0.0
 python-dotenv==1.0.0
 langchain-openai
 langchain-google-genai
-faster-whisper
+faster-whisper>=1.0.0
+tokenizers>=0.19.1
 pyannote-audio
 opencv-python-headless
 pytesseract
@@ -20,9 +21,9 @@ pdfplumber
 python-multipart
 qdrant-client
 redis
-chromadb
+chromadb>=0.5.0
 nomic
-pydantic
+pydantic>=2.0.0
 pydantic-settings
 sqlalchemy
 asyncpg

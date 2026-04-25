@@ -230,6 +230,7 @@ export function useASR(options: UseASROptions = {}) {
     isListening,
     isFallingBack,
     error,
-    asrProviderId
+    asrProviderId,
+    isHybrid: asrProviderId !== 'browser-native' || isFallingBack
   };
 }

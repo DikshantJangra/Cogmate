@@ -120,6 +120,7 @@ export interface TTSProviderConfig {
   defaultModelId: string;
   voices: TTSVoiceInfo[];
   supportedFormats: string[]; // ['mp3', 'wav', 'opus', etc.]
+  description?: string;
   speedRange?: {
     min: number;
     max: number;
@@ -168,6 +169,7 @@ export interface ASRProviderConfig {
   defaultModelId: string;
   supportedLanguages: string[];
   supportedFormats: string[];
+  description?: string;
 }
 
 /**
