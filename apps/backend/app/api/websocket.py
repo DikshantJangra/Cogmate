@@ -23,8 +23,10 @@ class ConnectionManager:
             "eval_score": 1.0,
             "confusion_points": [],
             "importance_tags": [],
+            "final_summary": "",
             "slide_context": "",
             "rewrite_count": 0,
+            "model_config": None,
         }
 
     async def connect_audio(self, ws: WebSocket):
@@ -51,6 +53,27 @@ class ConnectionManager:
         for ws in dead:
             self.ui_connections.remove(ws)
 
+    async def process_transcript_chunk(self, text: str, timestamp: str | None, topic: str | None = None, model_config: dict | None = None):
+        if topic:
+            self.session_state["current_topic"] = topic
+        if model_config:
+            self.session_state["model_config"] = model_config
+        
+        # Append to rolling buffer (keep last 60 chunks to avoid unbounded growth)
+        self.session_state["transcript_buffer"].append(text)
+        if len(self.session_state["transcript_buffer"]) > 60:
+            self.session_state["transcript_buffer"] = self.session_state["transcript_buffer"][-60:]
+
+        # Broadcast raw transcript chunk immediately for low-latency display
+        await self.broadcast_ui({
+            "type": "transcript_chunk",
+            "text": text,
+            "timestamp": timestamp,
+        })
+
+        # Run LangGraph pipeline asynchronously (don't block the receive loop)
+        asyncio.create_task(_run_pipeline(dict(self.session_state)))
+
     def _build_snapshot(self) -> dict:
         s = self.session_state
         return {
@@ -61,6 +84,7 @@ class ConnectionManager:
             "confusion": s["confusion_points"],
             "eval_score": s["eval_score"],
             "topic": s["current_topic"],
+            "final_summary": s.get("final_summary", ""),
         }
 
 
@@ -77,27 +101,16 @@ async def audio_endpoint(websocket: WebSocket):
             try:
                 msg = json.loads(raw)
                 text = msg.get("text", raw)
-                topic = msg.get("topic", manager.session_state["current_topic"])
+                topic = msg.get("topic")
+                timestamp = msg.get("timestamp")
+                model_config = msg.get("model_config")
             except (json.JSONDecodeError, AttributeError):
                 text = raw
-                topic = manager.session_state["current_topic"]
+                topic = None
+                timestamp = None
+                model_config = None
 
-            # Append to rolling buffer (keep last 60 chunks to avoid unbounded growth)
-            manager.session_state["transcript_buffer"].append(text)
-            if len(manager.session_state["transcript_buffer"]) > 60:
-                manager.session_state["transcript_buffer"] = manager.session_state["transcript_buffer"][-60:]
-            manager.session_state["current_topic"] = topic
-
-            # Broadcast raw transcript chunk immediately for low-latency display
-            await manager.broadcast_ui({
-                "type": "transcript_chunk",
-                "text": text,
-                "timestamp": msg.get("timestamp") if isinstance(msg, dict) else None,
-            })
-
-            # Run LangGraph pipeline asynchronously (don't block the receive loop)
-            asyncio.create_task(_run_pipeline(dict(manager.session_state)))
-
+            await manager.process_transcript_chunk(text, timestamp, topic, model_config)
             await websocket.send_text("ACK")
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -115,6 +128,18 @@ async def _run_pipeline(state: CogmateState):
         await manager.broadcast_ui({"type": "error", "message": str(e)})
 
 
+async def _run_summarizer(state: CogmateState):
+    try:
+        from app.core.agents import summarizer_node
+        logging.info("Running summarizer agent...")
+        final_state = await summarizer_node(state)
+        manager.session_state["final_summary"] = final_state.get("final_summary", "")
+        await manager.broadcast_ui(manager._build_snapshot())
+    except Exception as e:
+        logging.error(f"Summarizer error: {str(e)}")
+        await manager.broadcast_ui({"type": "error", "message": f"Summarizer failed: {str(e)}"})
+
+
 @router.websocket("/ws/ui")
 async def ui_endpoint(websocket: WebSocket):
     await manager.connect_ui(websocket)
@@ -124,15 +149,31 @@ async def ui_endpoint(websocket: WebSocket):
             raw = await websocket.receive_text()
             try:
                 msg = json.loads(raw)
-                if msg.get("type") == "set_topic":
+                msg_type = msg.get("type")
+                
+                if msg_type == "transcript_chunk":
+                    await manager.process_transcript_chunk(
+                        text=msg.get("text", ""),
+                        timestamp=msg.get("timestamp"),
+                        topic=msg.get("topic"),
+                        model_config=msg.get("model_config")
+                    )
+                elif msg_type == "set_topic":
                     manager.session_state["current_topic"] = msg.get("topic", "Live Lecture")
-                elif msg.get("type") == "reset":
+                    if msg.get("model_config"):
+                        manager.session_state["model_config"] = msg.get("model_config")
+                elif msg_type == "summarize":
+                    if msg.get("model_config"):
+                        manager.session_state["model_config"] = msg.get("model_config")
+                    asyncio.create_task(_run_summarizer(dict(manager.session_state)))
+                elif msg_type == "reset":
                     manager.session_state["transcript_buffer"] = []
                     manager.session_state["lesson_outline"] = []
                     manager.session_state["importance_tags"] = []
                     manager.session_state["confusion_points"] = []
                     manager.session_state["eval_score"] = 1.0
                     manager.session_state["rewrite_count"] = 0
+                    manager.session_state["final_summary"] = ""
                     await manager.broadcast_ui(manager._build_snapshot())
             except Exception:
                 pass

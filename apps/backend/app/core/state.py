@@ -13,5 +13,7 @@ class CogmateState(TypedDict):
     eval_score: float
     confusion_points: List[str]
     importance_tags: List[str]
+    final_summary: str
     slide_context: str
     rewrite_count: int
+    model_config: dict | None

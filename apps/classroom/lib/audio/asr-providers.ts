@@ -341,13 +341,20 @@ async function transcribeCogmateLocalASR(
   const baseUrl = config.baseUrl || 'http://127.0.0.1:8000';
 
   const formData = new FormData();
-  let blob: Blob;
+  let audioFile: File | Blob;
+
   if (audioBuffer instanceof Buffer) {
-    blob = new Blob([audioBuffer], { type: 'audio/webm' });
+    // In Node.js environment, we need to convert Buffer to Blob/File properly
+    const arrayBuffer = audioBuffer.buffer.slice(
+      audioBuffer.byteOffset,
+      audioBuffer.byteOffset + audioBuffer.byteLength,
+    );
+    audioFile = new File([arrayBuffer], 'audio.webm', { type: 'audio/webm' });
   } else {
-    blob = audioBuffer;
+    audioFile = audioBuffer;
   }
-  formData.append('file', blob, 'audio.webm');
+
+  formData.append('file', audioFile);
 
   const response = await fetch(`${baseUrl}/api/transcript`, {
     method: 'POST',
@@ -355,7 +362,7 @@ async function transcribeCogmateLocalASR(
   });
 
   if (!response.ok) {
-    const errorText = await response.text();
+    const errorText = await response.text().catch(() => response.statusText);
     throw new Error(`Cogmate Local ASR error: ${errorText}`);
   }
 

@@ -452,9 +452,17 @@ export default function LiveLecturePage() {
                   className="py-1"
                 >
                   <div className="flex items-start gap-2">
-                    <span className="text-[8px] bg-red-100 text-red-500 px-1 rounded uppercase font-bold mt-1 tracking-tighter">Live</span>
-                    <p className="text-xs text-slate-400 italic leading-relaxed animate-in fade-in duration-500">
-                      {interimText}…
+                    <span className={cn(
+                      "text-[8px] px-1 rounded uppercase font-bold mt-1 tracking-tighter",
+                      interimText === '...' ? "bg-slate-100 text-slate-400" : "bg-red-100 text-red-500"
+                    )}>
+                      {interimText === '...' ? 'Processing' : 'Live'}
+                    </span>
+                    <p className={cn(
+                      "text-xs leading-relaxed animate-in fade-in duration-500",
+                      interimText === '...' ? "text-slate-300 italic" : "text-slate-400 italic"
+                    )}>
+                      {interimText === '...' ? 'Transcribing audio chunk...' : `${interimText}…`}
                     </p>
                   </div>
                 </motion.div>

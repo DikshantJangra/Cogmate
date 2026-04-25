@@ -104,6 +104,10 @@ export function useASR(options: UseASROptions = {}) {
         if (audioChunksRef.current.length > 0) {
           const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           audioChunksRef.current = []; // Clear for next chunk
+          
+          // Provide interim feedback that we're transcribing the last chunk
+          options.onResult?.({ text: '...', isFinal: false });
+          
           transcribeChunk(blob, forceProvider);
         }
       }, 4000);
