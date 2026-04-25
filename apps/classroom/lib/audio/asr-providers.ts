@@ -344,8 +344,9 @@ async function transcribeCogmateLocalASR(
   let blob: Blob;
 
   if (audioBuffer instanceof Buffer) {
-    // Standard Node.js Buffer to Blob conversion
-    blob = new Blob([audioBuffer], { type: 'audio/webm' });
+    // Standard Node.js Buffer to Blob conversion via Uint8Array
+    const uint8Array = new Uint8Array(audioBuffer.buffer, audioBuffer.byteOffset, audioBuffer.byteLength);
+    blob = new Blob([uint8Array], { type: 'audio/webm' });
   } else {
     blob = audioBuffer;
   }

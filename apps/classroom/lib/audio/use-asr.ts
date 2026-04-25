@@ -56,7 +56,8 @@ export function useASR(options: UseASROptions = {}) {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || `Transcription failed: ${res.statusText}`);
+        const detailedMsg = errorData.details || errorData.error || `Transcription failed: ${res.statusText}`;
+        throw new Error(detailedMsg);
       }
 
       const data = await res.json();
