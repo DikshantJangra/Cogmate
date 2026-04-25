@@ -391,8 +391,24 @@ export default function LiveLecturePage() {
 
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
             <AnimatePresence initial={false}>
-              {chunks.length === 0 ? (
-                <div key="empty-state" className="flex flex-col items-center justify-center h-full gap-4 text-center px-8">
+              {sttError && (
+                <motion.div
+                  key="stt-error-banner"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="bg-red-50 border border-red-100 rounded-xl p-3 flex items-start gap-3"
+                >
+                  <AlertTriangle className="size-4 text-red-500 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-bold text-red-600 uppercase tracking-wider">Transcription Error</p>
+                    <p className="text-xs text-red-500 leading-relaxed">{sttError}</p>
+                  </div>
+                </motion.div>
+              )}
+
+              {chunks.length === 0 && !sttError ? (
+                <div key="empty-state" className="flex flex-col items-center justify-center h-full gap-4 text-center px-8 py-10">
                   <div className={cn(
                     "size-16 rounded-3xl flex items-center justify-center transition-all duration-500",
                     isRecording ? "bg-red-50 text-red-500 scale-110 shadow-lg shadow-red-100" : "bg-slate-50 text-slate-200"
