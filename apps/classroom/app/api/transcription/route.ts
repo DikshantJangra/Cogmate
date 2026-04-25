@@ -60,18 +60,23 @@ export async function POST(req: NextRequest) {
     return apiSuccess({ text: result.text });
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    const errorStack = error instanceof Error ? error.stack : '';
     
+    // Attempt to extract more detail if it was an API error from the backend
+    let detailedError = errorMsg;
+    if (errorMsg.includes('Cogmate Local ASR error')) {
+      // The error message from transcribeAudio already includes the body text
+      detailedError = errorMsg;
+    }
+
     log.error(
-      `Transcription failed [provider=${resolvedProviderId ?? 'unknown'}, model=${resolvedModelId ?? 'default'}]:`,
-      { message: errorMsg, stack: errorStack }
+      `Transcription failed [provider=${resolvedProviderId ?? 'unknown'}]: ${detailedError}`
     );
     
     return apiError(
       'TRANSCRIPTION_FAILED',
       500,
       'Transcription failed',
-      errorMsg
+      detailedError
     );
   }
 }

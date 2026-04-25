@@ -1092,6 +1092,7 @@ export const ASR_PROVIDERS: Record<BuiltInASRProviderId, ASRProviderConfig> = {
     defaultModelId: 'base',
     supportedLanguages: CUSTOM_ASR_DEFAULT_LANGUAGES,
     supportedFormats: ['webm', 'wav'],
+    description: 'Runs on your local Cogmate backend. Requires FFmpeg installed on the host machine.',
   },
 
   'browser-native': {

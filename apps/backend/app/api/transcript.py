@@ -37,6 +37,7 @@ async def transcribe_audio(file: UploadFile = File(...)):
     model = get_whisper_model()
     
     # Save uploaded file to temp
+    # We close the file so faster-whisper can open it cleanly
     with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
         content = await file.read()
         tmp.write(content)
@@ -47,8 +48,11 @@ async def transcribe_audio(file: UploadFile = File(...)):
         text = " ".join([segment.text for segment in segments]).strip()
         return {"text": text, "language": info.language}
     except Exception as e:
-        logging.error(f"Transcription error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        err_msg = str(e)
+        if "ffmpeg" in err_msg.lower():
+            err_msg = "FFmpeg not found on server. Please install ffmpeg to use local ASR."
+        logging.error(f"Transcription error: {err_msg}")
+        raise HTTPException(status_code=500, detail=err_msg)
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
