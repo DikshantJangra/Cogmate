@@ -1,0 +1,24 @@
+{
+  "name": "cogmate",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build:packages": "pnpm --filter mathml2omml run build && pnpm --filter pptxgenjs exec tsc",
+    "dev:backend": "cd apps/backend && source venv/bin/activate && uvicorn app.main:app --reload",
+    "dev:listener": "pnpm --filter meetily run dev",
+    "dev:classroom": "pnpm --filter openmaic run dev",
+    "install:all": "pnpm install && pnpm run build:packages && cd apps/backend && python3.12 -m venv venv && source venv/bin/activate && pip install -r requirements.txt",
+    "test:backend": "cd apps/backend && source venv/bin/activate && PYTHONPATH=. pytest"
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "sharp",
+      "unrs-resolver"
+    ]
+  },
+  "packageManager": "pnpm@10.11.0",
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^12.3.0",
+    "tslib": "^2.8.1"
+  }
+}

@@ -1,64 +1,22 @@
-# Agent Skills & AI Stuff
+# Local configuration & IDE state
 .agents/
 .gemini/
 .kiro/
-ROLES.md
-docs/
 .planning/
-**/AGENTS.md
-**/CLAUDE.md
-**/RESEARCH.md
-**/PLAN.md
-**/SKILL.md
+.DS_Store
+Thumbs.db
+
+# Project documentation & specs
+docs/
+ROLES.md
 **/superpowers/
-**/roles.md
-**/PLAN.md
-**/RESEARCH.md
-**/SESSION.md
-**/project_state.md
-**/AGENTS.md
-**/AGENTS.md.original.md
-**/CLAUDE.md.original.md
-**/GEMINI.md
-**/GEMINI.md.original.md
-**/SKILL.md.original.md
-**/RESEARCH.md.original.md
-**/PLAN.md.original.md
-**/SESSION.md.original.md
-**/project_state.md.original.md
-**/VERIFICATION.md
-**/VERIFICATION.md.original.md
-**/IMPLEMENTATION_PHASES.md
-**/IMPLEMENTATION_PHASES.md.original.md
-**/SUMMARY.md
-**/SUMMARY.md.original.md
-**/MAP.md
-**/MAP.md.original.md
-**/CONCERNS.md
-**/CONCERNS.md.original.md
-**/QUALITY.md
-**/QUALITY.md.original.md
-**/ARCH.md
-**/ARCH.md.original.md
-**/TECH.md
-**/TECH.md.original.md
-**/SPECS.md
-**/SPECS.md.original.md
-**/BRAINSTORM.md
-**/BRAINSTORM.md.original.md
-**/REQUIREMENTS.md
-**/REQUIREMENTS.md.original.md
-**/ROADMAP.md
-**/ROADMAP.md.original.md
 **/SESSIONS/
 **/TRACKS/
-**/SPEC.md
-**/PLAN.md
-**/TRACK.md
-**/SPEC.md.original.md
-**/PLAN.md.original.md
-**/TRACK.md.original.md
 
+# Temporary build & research artifacts
+**/*.md
+!README.md
+!CONTRIBUTING.md
 
 # Node
 node_modules/
