@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "pnpm --filter mathml2omml run build && pnpm --filter pptxgenjs exec tsc && next build",
     "start": "next start",
     "lint": "eslint",
     "check:i18n-keys": "node scripts/check-i18n-keys.mjs",
